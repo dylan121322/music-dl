@@ -15,3 +15,4 @@ build/
 *.mp3
 *.flac
 /chrome-cdp/
+*.spec
