@@ -15,8 +15,9 @@ QQ 音乐下载工具 — 搜索、歌单批量下载、VIP 歌曲下载、多�
 ## 功能
 
 - 关键词搜索 + 歌单批量下载（含短链接）
-- VIP Cookie 登录（支持微信/QQ 扫码）
+- 多平台登录：QQ 音乐 / 网易云 / 酷狗（标签切换，独立 Cookie）
 - Chrome CDP 一键自动提取 Cookie（含 HttpOnly）
+- 网易云登录后自动解锁 VIP 歌曲 + 320kbps 音质
 - 多音源自动回退：QQ 音乐 → 网易云 → 酷狗 → 网络搜索
 - AI 音源发现：自动搜索互联网 + AI 分析网页 + 注册新音源
 - 3 层下载回退：主音源 → 已知音源 → 针对性网页搜索
@@ -158,7 +159,11 @@ qqmusic-dl/
   "download_dir": "~/Music/QQMusic",
   "quality": "320kbps",
   "workers": 3,
-  "cookie": ""
+  "accounts": {
+    "qq": "uin=...; qqmusic_key=...",
+    "netease": "MUSIC_U=...",
+    "kugou": "kg_mid=..."
+  }
 }
 ```
 
