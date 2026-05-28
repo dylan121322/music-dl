@@ -13,6 +13,7 @@ class Song:
     quality: str = ""   # "128kbps" | "320kbps" | "flac"
     url: str = ""       # resolved download URL
     is_gray: bool = True  # True if song is unavailable/download restricted
+    source: str = "qq"   # "qq" | "netease" | "kugou"
 
     @property
     def filename(self) -> str:

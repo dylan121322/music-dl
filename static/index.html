@@ -194,12 +194,15 @@ function renderSongs() {
       <span></span><span>歌曲</span><span>歌手</span><span>专辑</span><span>时长</span>
     </div>`;
 
+  const sourceLabels = { qq: 'QQ', netease: '网易云', kugou: '酷狗' };
   songs.forEach((s, i) => {
     const gb = s.is_gray ? '<span class="gray-badge">VIP</span>' : '';
+    const src = s.source || 'qq';
+    const sb = `<span class="source-badge ${src}">${sourceLabels[src] || src}</span>`;
     const checked = selected.has(i) ? 'checked' : '';
     html += `<div class="song-row">
       <input type="checkbox" ${checked} onchange="toggleSong(${i}, this.checked)" id="cb${i}">
-      <span class="title">${esc(s.title)}${gb}</span>
+      <span class="title">${esc(s.title)}${sb}${gb}</span>
       <span class="singer">${esc(s.singer)}</span>
       <span class="album">${esc(s.album)}</span>
       <span class="duration">${s.duration_str}</span>

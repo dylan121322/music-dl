@@ -17,7 +17,7 @@ from api import QQMusicAPI
 from models import Song
 from downloader import Downloader
 from utils import load_config, save_config, QUALITY_MAP, cookie_to_auth, get_account, save_account, get_platform_status, PLATFORMS
-from sources import get_best_free, set_source_cookies
+from sources import get_best_free, set_source_cookies, _netease_instance, _kugou_instance
 
 CONFIG_PATH = Path.home() / ".config" / "qqmusic-dl" / "config.json"
 STATIC_DIR = Path(__file__).parent / "static"
@@ -94,6 +94,7 @@ def _song_to_dict(s: Song) -> dict:
         "duration": s.duration,
         "duration_str": s.duration_str,
         "is_gray": s.is_gray,
+        "source": s.source,
     }
 
 
@@ -105,6 +106,7 @@ def _dict_to_song(d: dict) -> Song:
         album=d.get("album", ""),
         duration=d.get("duration", 0),
         is_gray=d.get("is_gray", False),
+        source=d.get("source", "qq"),
     )
 
 
@@ -150,9 +152,54 @@ def api_save_config(body: ConfigUpdateRequest):
 
 @app.post("/api/search")
 def api_search(body: SearchRequest):
-    api = get_api()
-    songs = api.search(body.keyword, page=body.page, limit=body.limit)
-    return {"songs": [_song_to_dict(s) for s in songs]}
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    results: list[dict] = []
+    seen = set()
+
+    def add_qq():
+        api = get_api()
+        for s in api.search(body.keyword, page=body.page, limit=body.limit):
+            d = _song_to_dict(s)
+            key = f"{d['title']}|{d['singer']}"
+            if key not in seen:
+                seen.add(key)
+                results.append(d)
+
+    def add_source(instance, source_name, limit):
+        try:
+            for r in instance.search(body.keyword)[:limit]:
+                key = f"{r.title}|{r.artist}"
+                if key in seen:
+                    continue
+                seen.add(key)
+                mid = getattr(r, 'song_id', '') or str(hash(key))
+                results.append({
+                    "mid": f"{source_name}-{mid}",
+                    "title": r.title,
+                    "singer": r.artist,
+                    "album": "",
+                    "duration": r.duration,
+                    "duration_str": f"{r.duration // 60}:{r.duration % 60:02d}" if r.duration else "?:??",
+                    "is_gray": True,
+                    "source": source_name,
+                })
+        except Exception:
+            pass
+
+    # Search QQ + NetEase + KuGou in parallel
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = [
+            pool.submit(add_qq),
+            pool.submit(add_source, _netease_instance, "netease", body.limit),
+            pool.submit(add_source, _kugou_instance, "kugou", body.limit),
+        ]
+        for f in as_completed(futures):
+            f.result()
+
+    # QQ results first, then others
+    results.sort(key=lambda r: (0 if r["source"] == "qq" else 1, r.get("title", "")))
+    return {"songs": results}
 
 
 @app.post("/api/favorites")
@@ -345,18 +392,7 @@ def api_download(body: DownloadRequest):
                    "succeeded": results["succeeded"], "failed": results["failed"],
                    "skipped": results["skipped"]})
 
-            if song.is_gray and not api_obj.g_tk:
-                alt = get_best_free(song.title, song.singer)
-                if alt and alt.download_url:
-                    q.put({"type": "fallback", "title": song.title, "source": alt.source})
-                    song.url = alt.download_url
-                    filepath = dl.save_dir / song.filename
-                    ok = dl._download_file(alt.download_url, filepath, alt.title)
-                else:
-                    results["skipped"] += 1
-                    continue
-            else:
-                ok = dl.download(song)
+            ok = dl.download(song)
 
             if ok:
                 results["succeeded"] += 1

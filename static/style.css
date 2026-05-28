@@ -308,6 +308,18 @@ select {
   font-weight: 600;
 }
 
+.source-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  margin-left: 6px;
+  font-weight: 600;
+}
+.source-badge.qq { background: var(--accent); color: #fff; }
+.source-badge.netease { background: #c62f2f; color: #fff; }
+.source-badge.kugou { background: #2196F3; color: #fff; }
+
 /* ── Download bar ── */
 .download-bar {
   display: flex;

@@ -73,7 +73,11 @@ class QQMusicAPI:
             "ct": "24",
             "cv": "0",
         }
-        data = self._get("/soso/fcgi-bin/client_search_cp", params)
+        try:
+            data = self._get("/soso/fcgi-bin/client_search_cp", params)
+        except Exception as e:
+            logger.warning("QQ Music search failed: %s", e)
+            return []
         songs = []
         song_list = data.get("data", {}).get("song", {}).get("list", [])
         for item in song_list:
