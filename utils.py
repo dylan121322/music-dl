@@ -14,6 +14,55 @@ QUALITY_MAP = {
     "flac":    {"label": "flac", "desc": "Lossless FLAC"},
 }
 
+PLATFORMS = {
+    "qq": {"name": "QQ音乐", "domain": "y.qq.com", "login_url": "https://y.qq.com", "color": "#6c5ce7"},
+    "netease": {"name": "网易云音乐", "domain": "music.163.com", "login_url": "https://music.163.com", "color": "#e74c3c"},
+    "kugou": {"name": "酷狗音乐", "domain": "kugou.com", "login_url": "https://www.kugou.com", "color": "#3498db"},
+}
+
+
+def get_account(config: dict, platform: str) -> str:
+    """Get cookie string for a platform from config. Backward compatible with old 'cookie' key."""
+    if platform == "qq" and config.get("cookie") and not config.get("accounts", {}).get("qq"):
+        return config["cookie"]
+    return (config.get("accounts") or {}).get(platform, "")
+
+
+def save_account(config_path: Path, platform: str, cookie: str) -> None:
+    """Save cookie for a specific platform to config."""
+    config = load_config(config_path)
+    if "accounts" not in config:
+        config["accounts"] = {}
+    config["accounts"][platform] = cookie
+    # Migrate old format
+    if platform == "qq" and config.get("cookie"):
+        del config["cookie"]
+    save_config(config_path, config)
+
+
+def get_platform_status(config: dict) -> list[dict]:
+    """Get login status for all platforms."""
+    status = []
+    for key, info in PLATFORMS.items():
+        cookie = get_account(config, key)
+        auth = cookie_to_auth(cookie) if key == "qq" else _parse_generic_cookie(cookie)
+        status.append({
+            "key": key,
+            "name": info["name"],
+            "color": info["color"],
+            "logged_in": bool(cookie),
+            "user": auth.get("user", "") if auth else "",
+        })
+    return status
+
+
+def _parse_generic_cookie(cookie_str: str) -> dict | None:
+    """Parse a generic cookie string, extract any user identifier."""
+    if not cookie_str:
+        return None
+    parsed = parse_cookie_string(cookie_str)
+    return {"user": parsed.get("nickname", parsed.get("userid", ""))}
+
 
 def get_g_tk(qqmusic_key: str) -> int:
     """Compute g_tk from qqmusic_key (or p_skey) cookie value."""

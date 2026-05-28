@@ -15,24 +15,24 @@
   <!-- Login -->
   <div class="section" id="loginSection">
     <div class="section-title">🔑 登录</div>
+    <div class="platform-tabs" id="platformTabs">
+      <button class="plat-tab active" data-platform="qq" onclick="switchPlatform('qq')">QQ</button>
+      <button class="plat-tab" data-platform="netease" onclick="switchPlatform('netease')">网易云</button>
+      <button class="plat-tab" data-platform="kugou" onclick="switchPlatform('kugou')">酷狗</button>
+    </div>
     <div id="loginStatus" style="margin-bottom:8px;font-size:0.82rem;">
       <span class="badge badge-warn">未登录</span>
     </div>
     <div class="row" style="margin-bottom:6px;">
-      <button class="btn btn-outline btn-sm btn-block" onclick="openChrome()" title="打开Chrome并扫码登录">打开Chrome</button>
-      <button class="btn btn-primary btn-sm btn-block" onclick="extractCookies()" title="从Chrome提取Cookie">提取Cookie</button>
+      <button class="btn btn-outline btn-sm btn-block" onclick="openChrome()">打开Chrome</button>
+      <button class="btn btn-primary btn-sm btn-block" onclick="extractCookies()">提取Cookie</button>
     </div>
 
     <div class="collapse-header" onclick="toggleCollapse('manualLogin')">
-      手动输入 ▾
+      手动输入 Cookie ▾
     </div>
     <div id="manualLogin" class="collapse-body">
-      <div class="row" style="margin-top:6px;">
-        <input id="uinInput" placeholder="uin / wxuin (QQ号)" style="flex:1">
-      </div>
-      <div class="row" style="margin-top:4px;">
-        <input id="keyInput" placeholder="qqmusic_key / qm_keyst" type="password" style="flex:1">
-      </div>
+      <textarea id="cookieInput" placeholder="粘贴完整 Cookie 字符串..." style="margin-top:4px;height:60px;font-size:0.75rem;"></textarea>
       <div class="row" style="margin-top:6px;">
         <button class="btn btn-outline btn-sm" onclick="manualLogin()">登录</button>
         <button class="btn btn-danger btn-sm" onclick="clearLogin()">清除</button>
@@ -136,6 +136,7 @@
 let songs = [];
 let selected = new Set();
 let status = {};
+let currentPlatform = 'qq';
 
 // ── Init ──
 async function init() {
@@ -150,6 +151,13 @@ async function init() {
 }
 init();
 
+// ── Platform switching ──
+function switchPlatform(p) {
+  currentPlatform = p;
+  document.querySelectorAll('.plat-tab').forEach(b => b.classList.toggle('active', b.dataset.platform === p));
+  renderStatus();
+}
+
 // ── Toast ──
 function toast(msg, type='info') {
   const c = document.getElementById('toastContainer');
@@ -163,10 +171,13 @@ function toast(msg, type='info') {
 // ── Render ──
 function renderStatus() {
   const el = document.getElementById('loginStatus');
-  if (status.logged_in) {
-    el.innerHTML = `<span class="badge badge-ok">已登录</span> QQ: ${status.uin}`;
+  const accounts = status.accounts || [];
+  const acct = accounts.find(a => a.key === currentPlatform);
+  if (acct && acct.logged_in) {
+    el.innerHTML = `<span class="badge badge-ok">已登录</span> ${acct.name}` + (acct.user ? `: ${acct.user}` : '');
   } else {
-    el.innerHTML = '<span class="badge badge-warn">未登录</span>';
+    const name = acct ? acct.name : '未知';
+    el.innerHTML = `<span class="badge badge-warn">未登录</span> ${name}`;
   }
 }
 
@@ -292,9 +303,9 @@ async function getPlaylist() {
 async function openChrome() {
   toast('正在打开 Chrome...', 'info');
   try {
-    const r = await fetch('/api/login/chrome', {method: 'POST'});
+    const r = await fetch('/api/login/chrome?platform=' + currentPlatform, {method: 'POST'});
     const d = await r.json();
-    if (d.ok) toast('Chrome 已打开，微信扫码后点击「提取Cookie」', 'ok');
+    if (d.ok) toast('Chrome 已打开，扫码后点击「提取Cookie」', 'ok');
     else toast(d.detail || '失败', 'err');
   } catch(e) { toast('打开Chrome失败: ' + e.message, 'err'); }
 }
@@ -302,12 +313,11 @@ async function openChrome() {
 async function extractCookies() {
   toast('正在从 Chrome 提取 Cookie...', 'info');
   try {
-    const r = await fetch('/api/login/cdp', {method: 'POST'});
+    const r = await fetch('/api/login/cdp?platform=' + currentPlatform, {method: 'POST'});
     const d = await r.json();
     if (d.ok) {
-      status.logged_in = true; status.uin = d.uin;
-      renderStatus();
-      toast('登录成功! QQ: ' + d.uin, 'ok');
+      toast(`登录成功! ${d.platform}` + (d.user ? `: ${d.user}` : ''), 'ok');
+      refreshStatus();
     } else {
       toast(d.detail || '提取失败', 'err');
     }
@@ -315,21 +325,17 @@ async function extractCookies() {
 }
 
 async function manualLogin() {
-  const uin = document.getElementById('uinInput').value.trim();
-  const key = document.getElementById('keyInput').value.trim();
-  if (!uin || !key) { toast('请填写 uin 和 key', 'err'); return; }
-  const cookie = `uin=${uin}; qqmusic_key=${key}`;
-
+  const cookie = document.getElementById('cookieInput').value.trim();
+  if (!cookie) { toast('请粘贴 Cookie 字符串', 'err'); return; }
   try {
     const r = await fetch('/api/login/cookie', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({cookie})
+      body: JSON.stringify({cookie, platform: currentPlatform})
     });
     const d = await r.json();
     if (d.ok) {
-      status.logged_in = true; status.uin = d.uin;
-      renderStatus();
-      toast('登录成功!', 'ok');
+      toast(`登录成功! ${d.platform}`, 'ok');
+      refreshStatus();
     }
   } catch(e) { toast('登录失败: ' + e.message, 'err'); }
 }
@@ -338,12 +344,19 @@ async function clearLogin() {
   try {
     await fetch('/api/login/cookie', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({cookie: ''})
+      body: JSON.stringify({cookie: '', platform: currentPlatform})
     });
   } catch(e) {}
-  status.logged_in = false; status.uin = '';
-  renderStatus();
+  refreshStatus();
   toast('已清除登录状态', 'info');
+}
+
+async function refreshStatus() {
+  try {
+    const r = await fetch('/api/status');
+    status = await r.json();
+  } catch(e) {}
+  renderStatus();
 }
 
 // ── Settings ──

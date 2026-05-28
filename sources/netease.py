@@ -1,4 +1,4 @@
-"""NetEase Cloud Music (网易云音乐) download source."""
+"""NetEase Cloud Music (网易云音乐) download source with login support."""
 from typing import Optional
 import requests
 from difflib import SequenceMatcher
@@ -12,23 +12,48 @@ HEADERS = {
 
 
 def _similarity(a: str, b: str) -> float:
-    """Calculate string similarity for matching."""
-    a = a.lower().strip()
-    b = b.lower().strip()
+    a, b = a.lower().strip(), b.lower().strip()
     return SequenceMatcher(None, a, b).ratio()
 
 
 class NeteaseSource(MusicSource):
     name = "netease"
 
+    def __init__(self, cookie_str: str = ""):
+        self.session = requests.Session()
+        self.session.headers.update(HEADERS)
+        self.uid = ""
+        if cookie_str:
+            self.set_cookie(cookie_str)
+
+    def set_cookie(self, cookie_str: str):
+        """Set login cookie for VIP auth and higher quality."""
+        for part in cookie_str.split(";"):
+            part = part.strip()
+            if "=" in part:
+                k, v = part.split("=", 1)
+                self.session.cookies.set(k.strip(), v.strip(), domain=".163.com")
+                self.session.cookies.set(k.strip(), v.strip(), domain=".music.163.com")
+        self.session.headers["Cookie"] = cookie_str
+
+        # Try to get user info
+        try:
+            resp = self.session.get(f"{BASE}/api/nuser/account/get", timeout=5)
+            profile = resp.json().get("profile", {})
+            self.uid = str(profile.get("userId", ""))
+        except Exception:
+            pass
+
+    @property
+    def logged_in(self) -> bool:
+        return bool(self.uid)
+
     def search(self, title: str, artist: str = "") -> list[SearchResult]:
-        """Search NetEase Cloud Music."""
         query = f"{title} {artist}".strip()
         try:
-            resp = requests.post(
+            resp = self.session.post(
                 f"{BASE}/api/search/get",
                 data={"s": query, "type": "1", "limit": "5", "offset": "0"},
-                headers=HEADERS,
                 timeout=10,
             )
             data = resp.json()
@@ -43,10 +68,9 @@ class NeteaseSource(MusicSource):
             song_artist = "/".join(
                 a.get("name", "") for a in (song.get("artists") or [])
             )
-            fee = song.get("fee", 0)  # 0=free, 1/8=VIP/paid
-            free = fee == 0
+            fee = song.get("fee", 0)
+            free = fee == 0 or self.logged_in
 
-            # Calculate match score
             title_sim = _similarity(title, song_title)
             art_sim = _similarity(artist, song_artist) if artist else 1.0
             score = title_sim * 0.6 + art_sim * 0.4
@@ -60,24 +84,29 @@ class NeteaseSource(MusicSource):
                 match_score=score,
             ))
 
-        # Try to get download URLs even for non-free songs
-        for r in results:
-            if not r.download_url:
-                url = self.get_download_url("")
-                # Actually, extract ID from the result
-                # Re-get the URL - the get_download_url is called again below
-                pass
-
         results.sort(key=lambda r: r.match_score, reverse=True)
         return results
 
     def get_download_url(self, song_id: str) -> Optional[str]:
-        """Get downloadable URL from NetEase. Returns None if unavailable."""
         if not song_id:
             return None
         try:
-            url = f"{BASE}/song/media/outer/url?id={song_id}.mp3"
-            resp = requests.get(url, headers=HEADERS, allow_redirects=False, timeout=5)
+            if self.logged_in:
+                # Authenticated: try higher quality API
+                resp = self.session.get(
+                    f"{BASE}/api/song/enhance/player/url",
+                    params={"id": song_id, "ids": f"[{song_id}]", "br": 320000},
+                    timeout=5,
+                )
+                data = resp.json().get("data", [])
+                if data and data[0].get("url"):
+                    return data[0]["url"]
+
+            # Fallback: unauthenticated URL
+            resp = self.session.get(
+                f"{BASE}/song/media/outer/url?id={song_id}.mp3",
+                allow_redirects=False, timeout=5,
+            )
             location = resp.headers.get("Location", "")
             if location:
                 return location

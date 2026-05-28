@@ -30,6 +30,38 @@ body {
   display: flex;
 }
 
+/* ── Platform tabs ── */
+.platform-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.plat-tab {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font);
+}
+
+.plat-tab.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.plat-tab:hover:not(.active) {
+  border-color: var(--text-dim);
+  color: var(--text);
+}
+
 /* ── Sidebar ── */
 .sidebar {
   width: 300px;

@@ -6,14 +6,23 @@ from sources.kugou import KugouSource
 from sources.template import TemplateSource
 from sources.discovery import discover_sources, crawl_page_for_music
 
-# Hardcoded reliable sources
+# Global source instances (created once, may get auth cookies later)
+_netease_instance = NeteaseSource()
+_kugou_instance = KugouSource()
+
 RELIABLE_SOURCES: list[MusicSource] = [
-    NeteaseSource(),
-    KugouSource(),
+    _netease_instance,
+    _kugou_instance,
 ]
 
 # AI-discovered sources
 _ai_sources: list[TemplateSource] = []
+
+
+def set_source_cookies(platform: str, cookie_str: str):
+    """Set login cookie on the corresponding source instance."""
+    if platform == "netease":
+        _netease_instance.set_cookie(cookie_str)
 
 
 def run_ai_discovery(

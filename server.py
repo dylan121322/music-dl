@@ -16,8 +16,8 @@ from pydantic import BaseModel
 from api import QQMusicAPI
 from models import Song
 from downloader import Downloader
-from utils import load_config, save_config, QUALITY_MAP, cookie_to_auth
-from sources import get_best_free
+from utils import load_config, save_config, QUALITY_MAP, cookie_to_auth, get_account, save_account, get_platform_status, PLATFORMS
+from sources import get_best_free, set_source_cookies
 
 CONFIG_PATH = Path.home() / ".config" / "qqmusic-dl" / "config.json"
 STATIC_DIR = Path(__file__).parent / "static"
@@ -66,6 +66,7 @@ class PlaylistRequest(BaseModel):
 
 class CookieRequest(BaseModel):
     cookie: str
+    platform: str = "qq"
 
 
 class ConfigUpdateRequest(BaseModel):
@@ -121,6 +122,7 @@ def api_status():
         "download_dir": config.get("download_dir", str(Path.home() / "Music" / "QQMusic")),
         "workers": config.get("workers", 3),
         "has_cookie": bool(config.get("cookie", "")),
+        "accounts": get_platform_status(config),
     }
 
 
@@ -178,17 +180,29 @@ def api_playlist(body: PlaylistRequest):
 @app.post("/api/login/cookie")
 def api_login_cookie(body: CookieRequest):
     cookie = body.cookie.strip()
+    platform = body.platform
+    if platform not in PLATFORMS:
+        raise HTTPException(status_code=400, detail=f"Unknown platform: {platform}")
+
     if not cookie:
         raise HTTPException(status_code=400, detail="Empty cookie")
-    auth = cookie_to_auth(cookie)
-    if not auth:
-        raise HTTPException(status_code=400, detail="Invalid cookie: need uin+qqmusic_key or wxuin+qm_keyst")
 
-    config = load_config(CONFIG_PATH)
-    config["cookie"] = cookie
-    save_config(CONFIG_PATH, config)
-    reset_api(cookie)
-    return {"ok": True, "uin": auth["uin"]}
+    # Validate differently per platform
+    user = ""
+    if platform == "qq":
+        auth = cookie_to_auth(cookie)
+        if not auth:
+            raise HTTPException(status_code=400, detail="Invalid cookie: need uin+qqmusic_key or wxuin+qm_keyst")
+        user = auth["uin"]
+    elif platform == "netease":
+        if "MUSIC_U" not in cookie:
+            raise HTTPException(status_code=400, detail="Need MUSIC_U cookie for NetEase")
+
+    save_account(CONFIG_PATH, platform, cookie)
+    if platform == "qq":
+        reset_api(cookie)
+    set_source_cookies(platform, cookie)
+    return {"ok": True, "platform": platform, "user": user}
 
 
 def _find_chrome() -> str:
@@ -216,17 +230,21 @@ def _find_chrome() -> str:
 
 
 @app.post("/api/login/chrome")
-def api_login_chrome():
-    """Open Chrome for manual login."""
+def api_login_chrome(platform: str = "qq"):
+    """Open Chrome for manual login on a specific platform."""
+    if platform not in PLATFORMS:
+        raise HTTPException(status_code=400, detail=f"Unknown platform: {platform}")
+    info = PLATFORMS[platform]
+
     import subprocess
-    import platform
+    import platform as pf
     import tempfile
     try:
         chrome = _find_chrome()
     except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="Chrome not found. Install Chrome or set cookie manually.")
+        raise HTTPException(status_code=500, detail="Chrome not found.")
     try:
-        user_data = "/tmp/chrome-cdp-v3" if platform.system() != "Windows" else \
+        user_data = "/tmp/chrome-cdp-v3" if pf.system() != "Windows" else \
             str(Path(tempfile.gettempdir()) / "chrome-cdp-v3")
         subprocess.Popen([
             chrome,
@@ -235,16 +253,19 @@ def api_login_chrome():
             f"--user-data-dir={user_data}",
             "--no-first-run",
             "--no-default-browser-check",
-            "https://y.qq.com",
+            info["login_url"],
         ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    return {"ok": True, "message": "Chrome opened, scan QR code then extract cookies"}
+    return {"ok": True, "platform": platform, "message": f"Chrome opened for {info['name']}, scan QR then extract cookies"}
 
 
 @app.post("/api/login/cdp")
-def api_login_cdp():
-    """Extract cookies from Chrome CDP."""
+def api_login_cdp(platform: str = "qq"):
+    """Extract cookies from Chrome CDP for a specific platform."""
+    if platform not in PLATFORMS:
+        raise HTTPException(status_code=400, detail=f"Unknown platform: {platform}")
+
     try:
         from cdp_cookies import get_cookies_via_ws
         cookie = get_cookies_via_ws()
@@ -254,15 +275,24 @@ def api_login_cdp():
     if not cookie:
         raise HTTPException(status_code=400, detail="No cookies found. Open Chrome login window first and scan QR.")
 
-    auth = cookie_to_auth(cookie)
-    if not auth:
-        raise HTTPException(status_code=400, detail="Cookie extracted but missing auth keys. Did you log in?")
+    # Validate cookie based on platform
+    if platform == "qq":
+        auth = cookie_to_auth(cookie)
+        if not auth:
+            raise HTTPException(status_code=400, detail="Cookie missing auth keys. Did you log in to QQ Music?")
+        user = auth["uin"]
+    elif platform == "netease":
+        if "MUSIC_U" not in cookie:
+            raise HTTPException(status_code=400, detail="Cookie missing MUSIC_U. Did you log in to NetEase?")
+        user = ""
+    else:
+        user = ""
 
-    config = load_config(CONFIG_PATH)
-    config["cookie"] = cookie
-    save_config(CONFIG_PATH, config)
-    reset_api(cookie)
-    return {"ok": True, "uin": auth["uin"]}
+    save_account(CONFIG_PATH, platform, cookie)
+    if platform == "qq":
+        reset_api(cookie)
+    set_source_cookies(platform, cookie)
+    return {"ok": True, "platform": platform, "user": user}
 
 
 @app.get("/api/download/progress/{task_id}")
