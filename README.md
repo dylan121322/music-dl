@@ -41,9 +41,10 @@ python server.py
 # 打开 http://localhost:8765
 ```
 
-1. 侧边栏 → **🔑 登录** → **打开Chrome** → 微信扫码
-2. **提取Cookie** → 自动从 Chrome CDP 读取
-3. 粘贴歌单链接 → **获取歌单** → 勾选 → 下载
+1. 侧边栏 → **🔑 登录** → 选择平台（QQ/网易云/酷狗）
+2. **打开Chrome** → 在打开的页面微信/QQ扫码登录
+3. **提取Cookie** → 自动从 Chrome CDP 读取并保存
+4. 粘贴歌单链接 → **获取歌单** → 勾选 → 下载
 
 ### CLI
 
@@ -62,6 +63,18 @@ python main.py dl "https://y.qq.com/n/ryqq/playlist/123456.html"
 python main.py config
 python main.py config --dir ~/Music
 ```
+
+## 多平台登录
+
+侧边栏提供三个平台的登录标签：
+
+| 平台 | 登录方式 | Cookie 关键字段 | 登录后作用 |
+|------|---------|----------------|------------|
+| QQ 音乐 | 微信/QQ 扫码 | `qqmusic_key` / `qm_keyst` | VIP 歌曲 + 收藏下载 |
+| 网易云音乐 | 微信/QQ/手机扫码 | `MUSIC_U` | VIP 歌曲 + 320kbps |
+| 酷狗音乐 | 手机扫码 | 通用 | 备用音源下载 |
+
+> CDP Cookie 提取对三个平台通用：打开对应网站 → 手动登录 → 点「提取Cookie」
 
 ## 歌单链接格式
 
@@ -85,9 +98,11 @@ python main.py config --dir ~/Music
 ```
 qqmusic-dl/
 ├── server.py           # FastAPI 后端 + 静态文件服务（Web 入口）
+├── launcher.py         # 打包入口（PyInstaller 构建用）
 ├── static/             # 前端页面（原生 HTML/CSS/JS，零依赖）
-│   ├── index.html      # 单页应用
+│   ├── index.html      # 单页应用（含多平台登录）
 │   └── style.css       # 暗色主题
+├── .github/workflows/  # CI 自动构建（macOS + Windows）
 ├── app.py              # [旧] Streamlit Web GUI
 ├── main.py             # CLI 入口
 ├── api.py              # QQ 音乐 API + CDP HTML 歌单提取
