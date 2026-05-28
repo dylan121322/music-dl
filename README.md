@@ -1,7 +1,7 @@
 # QQ Music Downloader
 
 QQ 音乐下载工具 — 搜索、歌单批量下载、VIP 歌曲下载、多音源自动回退、AI 发现新音源。
-提供 Web GUI 和 CLI 两种界面。
+提供 Web GUI（FastAPI + 原生 JS）和 CLI 两种界面，页面秒开无需等待。
 
 ## 功能
 
@@ -27,13 +27,13 @@ pip install websocket-client cryptography
 ### Web GUI（推荐）
 
 ```bash
-streamlit run app.py
-# 打开 http://localhost:8501
+python server.py
+# 打开 http://localhost:8765
 ```
 
-1. 侧边栏 → **🔑 登录** → **🚀 打开登录窗口** → 微信扫码
-2. **🔍 一键提取 Cookie** → 自动从 Chrome 读取
-3. 粘贴歌单链接 → **📋 获取歌单** → 勾选 → 下载
+1. 侧边栏 → **🔑 登录** → **打开Chrome** → 微信扫码
+2. **提取Cookie** → 自动从 Chrome CDP 读取
+3. 粘贴歌单链接 → **获取歌单** → 勾选 → 下载
 
 ### CLI
 
@@ -74,7 +74,11 @@ python main.py config --dir ~/Music
 
 ```
 qqmusic-dl/
-├── app.py              # Streamlit Web GUI
+├── server.py           # FastAPI 后端 + 静态文件服务（Web 入口）
+├── static/             # 前端页面（原生 HTML/CSS/JS，零依赖）
+│   ├── index.html      # 单页应用
+│   └── style.css       # 暗色主题
+├── app.py              # [旧] Streamlit Web GUI
 ├── main.py             # CLI 入口
 ├── api.py              # QQ 音乐 API + CDP HTML 歌单提取
 ├── downloader.py       # 多线程下载引擎 + 3层回退
@@ -152,7 +156,7 @@ qqmusic-dl/
 ## 依赖
 
 - Python 3.8+
-- requests, rich, streamlit
+- fastapi, uvicorn, requests, rich
 - websocket-client, cryptography
 - Google Chrome（CDP Cookie 提取需要）
 
@@ -170,9 +174,10 @@ qqmusic-dl/
 
 | 依赖 | License |
 |------|---------|
+| [fastapi](https://github.com/fastapi/fastapi) | MIT |
+| [uvicorn](https://github.com/encode/uvicorn) | BSD |
 | [requests](https://github.com/psf/requests) | Apache 2.0 |
 | [rich](https://github.com/Textualize/rich) | MIT |
-| [streamlit](https://github.com/streamlit/streamlit) | Apache 2.0 |
 | [websocket-client](https://github.com/websocket-client/websocket-client) | Apache 2.0 |
 | [cryptography](https://github.com/pyca/cryptography) | Apache 2.0 / BSD |
 | [react-icons](https://github.com/react-icons/react-icons) | MIT |
