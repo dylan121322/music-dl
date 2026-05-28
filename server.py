@@ -191,22 +191,52 @@ def api_login_cookie(body: CookieRequest):
     return {"ok": True, "uin": auth["uin"]}
 
 
+def _find_chrome() -> str:
+    """Find Chrome/Chromium executable path cross-platform."""
+    import platform
+    import shutil
+    sysname = platform.system()
+    if sysname == "Darwin":
+        paths = [
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        ]
+    elif sysname == "Windows":
+        paths = [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            shutil.which("chrome.exe") or "",
+        ]
+    else:
+        paths = [shutil.which("google-chrome") or "", shutil.which("chromium-browser") or ""]
+    for p in paths:
+        if p and Path(p).exists():
+            return p
+    raise FileNotFoundError("Chrome not found")
+
+
 @app.post("/api/login/chrome")
 def api_login_chrome():
     """Open Chrome for manual login."""
     import subprocess
+    import platform
+    import tempfile
     try:
+        chrome = _find_chrome()
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="Chrome not found. Install Chrome or set cookie manually.")
+    try:
+        user_data = "/tmp/chrome-cdp-v3" if platform.system() != "Windows" else \
+            str(Path(tempfile.gettempdir()) / "chrome-cdp-v3")
         subprocess.Popen([
-            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            chrome,
             "--remote-debugging-port=9233",
             "--remote-allow-origins=*",
-            "--user-data-dir=/tmp/chrome-cdp-v3",
+            f"--user-data-dir={user_data}",
             "--no-first-run",
             "--no-default-browser-check",
             "https://y.qq.com",
         ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="Chrome not found at default path")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     return {"ok": True, "message": "Chrome opened, scan QR code then extract cookies"}
