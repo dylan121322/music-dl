@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QQ Music Downloader</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <h2><span>🎵</span> QQ 音乐下载器</h2>
+
+  <!-- Login -->
+  <div class="section" id="loginSection">
+    <div class="section-title">🔑 登录</div>
+    <div id="loginStatus" style="margin-bottom:8px;font-size:0.82rem;">
+      <span class="badge badge-warn">未登录</span>
+    </div>
+    <div class="row" style="margin-bottom:6px;">
+      <button class="btn btn-outline btn-sm btn-block" onclick="openChrome()" title="打开Chrome并扫码登录">打开Chrome</button>
+      <button class="btn btn-primary btn-sm btn-block" onclick="extractCookies()" title="从Chrome提取Cookie">提取Cookie</button>
+    </div>
+
+    <div class="collapse-header" onclick="toggleCollapse('manualLogin')">
+      手动输入 ▾
+    </div>
+    <div id="manualLogin" class="collapse-body">
+      <div class="row" style="margin-top:6px;">
+        <input id="uinInput" placeholder="uin / wxuin (QQ号)" style="flex:1">
+      </div>
+      <div class="row" style="margin-top:4px;">
+        <input id="keyInput" placeholder="qqmusic_key / qm_keyst" type="password" style="flex:1">
+      </div>
+      <div class="row" style="margin-top:6px;">
+        <button class="btn btn-outline btn-sm" onclick="manualLogin()">登录</button>
+        <button class="btn btn-danger btn-sm" onclick="clearLogin()">清除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="section">
+    <div class="section-title">⚙ 设置</div>
+    <div class="form-group">
+      <label>音质</label>
+      <select id="qualitySelect">
+        <option value="128kbps">128kbps M4A</option>
+        <option value="320kbps" selected>320kbps MP3</option>
+        <option value="flac">Lossless FLAC</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>下载目录</label>
+      <input id="saveDirInput" placeholder="~/Music/QQMusic">
+    </div>
+    <div class="form-group">
+      <label>并发数</label>
+      <input id="workersInput" type="number" min="1" max="6" value="3">
+    </div>
+    <button class="btn btn-outline btn-sm btn-block" onclick="saveSettings()">保存设置</button>
+  </div>
+
+  <!-- AI Source Discovery -->
+  <div class="section">
+    <div class="section-title">🤖 AI 发现音源</div>
+    <select id="aiModel" style="margin-bottom:6px;">
+      <option value="rule-based">rule-based (免费)</option>
+      <option value="openai">OpenAI (gpt-4o-mini)</option>
+      <option value="claude">Claude (haiku)</option>
+    </select>
+    <div id="aiKeyGroup" style="display:none;">
+      <input id="aiKey" placeholder="API Key" type="password" style="margin-bottom:6px;">
+      <input id="aiBaseUrl" placeholder="Base URL" style="margin-bottom:6px;">
+    </div>
+    <button class="btn btn-outline btn-sm btn-block" onclick="discoverSources()">开始搜索音源</button>
+    <button class="btn btn-outline btn-sm btn-block" onclick="checkSources()">查看音源状态</button>
+    <div id="sourceResult" style="margin-top:8px;font-size:0.78rem;"></div>
+  </div>
+
+  <div style="margin-top:auto; text-align:center;">
+    <div id="downloadedCount" style="font-size:0.8rem;color:var(--text-dim);margin-bottom:12px;"></div>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="main">
+  <h1>QQ 音乐下载器</h1>
+  <p class="subtitle">搜索歌曲 → 勾选 → 一键下载</p>
+
+  <!-- Favorites + Playlist -->
+  <div class="action-row">
+    <button class="btn btn-outline" onclick="getFavorites()">❤️ 我的收藏</button>
+  </div>
+  <div class="playlist-row">
+    <input id="playlistUrl" placeholder="粘贴 QQ 音乐歌单链接... 例如 https://y.qq.com/n/ryqq/playlist/123456">
+    <button class="btn btn-outline" onclick="getPlaylist()">获取歌单</button>
+  </div>
+
+  <!-- Search -->
+  <div class="search-bar">
+    <input id="searchInput" placeholder="输入歌曲名或歌手名..." autofocus>
+    <select id="searchLimit">
+      <option value="5">5</option>
+      <option value="10" selected>10</option>
+      <option value="20">20</option>
+      <option value="30">30</option>
+    </select>
+    <button class="btn btn-primary" onclick="doSearch()">搜索</button>
+  </div>
+
+  <!-- Results -->
+  <div id="resultsArea">
+    <div class="empty-state">👆 输入关键词后点击搜索</div>
+  </div>
+
+  <!-- Download bar -->
+  <div id="downloadBar" class="download-bar" style="display:none;">
+    <span>已选 <span class="count" id="selectedCount">0</span> 首</span>
+    <button class="btn btn-primary" onclick="startDownload()">下载选中</button>
+    <button class="btn btn-outline btn-sm" onclick="selectAll()">全选</button>
+    <button class="btn btn-outline btn-sm" onclick="deselectAll()">取消</button>
+    <div id="downloadProgress" style="flex:1;display:none;"></div>
+  </div>
+
+  <!-- Summary -->
+  <div id="summaryArea"></div>
+</main>
+
+<!-- Toast container -->
+<div class="toast" id="toastContainer"></div>
+
+<script>
+// ── State ──
+let songs = [];
+let selected = new Set();
+let status = {};
+
+// ── Init ──
+async function init() {
+  try {
+    const r = await fetch('/api/status');
+    status = await r.json();
+  } catch(e) { status = {}; }
+  renderStatus();
+  document.getElementById('saveDirInput').value = status.download_dir || '';
+  document.getElementById('qualitySelect').value = status.quality || '320kbps';
+  document.getElementById('workersInput').value = status.workers || 3;
+}
+init();
+
+// ── Toast ──
+function toast(msg, type='info') {
+  const c = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = 'toast-msg ' + type;
+  el.textContent = msg;
+  c.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+// ── Render ──
+function renderStatus() {
+  const el = document.getElementById('loginStatus');
+  if (status.logged_in) {
+    el.innerHTML = `<span class="badge badge-ok">已登录</span> QQ: ${status.uin}`;
+  } else {
+    el.innerHTML = '<span class="badge badge-warn">未登录</span>';
+  }
+}
+
+function renderSongs() {
+  const area = document.getElementById('resultsArea');
+  if (!songs.length) {
+    area.innerHTML = '<div class="empty-state">未找到歌曲</div>';
+    document.getElementById('downloadBar').style.display = 'none';
+    return;
+  }
+
+  let html = `<div class="song-list">
+    <div class="song-header">
+      <span></span><span>歌曲</span><span>歌手</span><span>专辑</span><span>时长</span>
+    </div>`;
+
+  songs.forEach((s, i) => {
+    const gb = s.is_gray ? '<span class="gray-badge">VIP</span>' : '';
+    const checked = selected.has(i) ? 'checked' : '';
+    html += `<div class="song-row">
+      <input type="checkbox" ${checked} onchange="toggleSong(${i}, this.checked)" id="cb${i}">
+      <span class="title">${esc(s.title)}${gb}</span>
+      <span class="singer">${esc(s.singer)}</span>
+      <span class="album">${esc(s.album)}</span>
+      <span class="duration">${s.duration_str}</span>
+    </div>`;
+  });
+
+  html += '</div>';
+  area.innerHTML = html;
+  updateSelectedCount();
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+function updateSelectedCount() {
+  document.getElementById('selectedCount').textContent = selected.size;
+  document.getElementById('downloadBar').style.display = songs.length ? 'flex' : 'none';
+}
+
+function toggleSong(i, on) {
+  if (on) selected.add(i); else selected.delete(i);
+  updateSelectedCount();
+}
+
+function selectAll() { songs.forEach((_, i) => selected.add(i)); renderSongs(); }
+function deselectAll() { selected.clear(); renderSongs(); }
+
+// ── API calls ──
+async function doSearch() {
+  const kw = document.getElementById('searchInput').value.trim();
+  if (!kw) return;
+  const limit = parseInt(document.getElementById('searchLimit').value);
+
+  const area = document.getElementById('resultsArea');
+  area.innerHTML = '<div class="empty-state"><span class="spinner"></span> 搜索中...</div>';
+
+  try {
+    const r = await fetch('/api/search', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({keyword: kw, limit})
+    });
+    const data = await r.json();
+    songs = data.songs || [];
+    selected.clear();
+    renderSongs();
+  } catch(e) {
+    area.innerHTML = '<div class="empty-state">搜索失败: ' + e.message + '</div>';
+    toast('搜索失败: ' + e.message, 'err');
+  }
+}
+
+async function getFavorites() {
+  const area = document.getElementById('resultsArea');
+  area.innerHTML = '<div class="empty-state"><span class="spinner"></span> 获取收藏列表...</div>';
+
+  try {
+    const r = await fetch('/api/favorites', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({page: 0, size: 200})
+    });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail); }
+    const data = await r.json();
+    songs = data.songs || [];
+    selected.clear();
+    renderSongs();
+    toast(`获取到 ${songs.length} 首收藏歌曲`, 'ok');
+  } catch(e) {
+    area.innerHTML = '<div class="empty-state">获取失败: ' + e.message + '</div>';
+    toast('获取收藏失败: ' + e.message, 'err');
+  }
+}
+
+async function getPlaylist() {
+  const url = document.getElementById('playlistUrl').value.trim();
+  if (!url) return;
+
+  const area = document.getElementById('resultsArea');
+  area.innerHTML = '<div class="empty-state"><span class="spinner"></span> 加载歌单...</div>';
+
+  try {
+    const r = await fetch('/api/playlist', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({url})
+    });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail); }
+    const data = await r.json();
+    songs = data.songs || [];
+    selected.clear();
+    renderSongs();
+    toast(`获取到 ${songs.length} 首歌`, 'ok');
+  } catch(e) {
+    area.innerHTML = '<div class="empty-state">加载失败: ' + e.message + '</div>';
+    toast('加载歌单失败: ' + e.message, 'err');
+  }
+}
+
+// ── Login ──
+async function openChrome() {
+  toast('正在打开 Chrome...', 'info');
+  try {
+    const r = await fetch('/api/login/chrome', {method: 'POST'});
+    const d = await r.json();
+    if (d.ok) toast('Chrome 已打开，微信扫码后点击「提取Cookie」', 'ok');
+    else toast(d.detail || '失败', 'err');
+  } catch(e) { toast('打开Chrome失败: ' + e.message, 'err'); }
+}
+
+async function extractCookies() {
+  toast('正在从 Chrome 提取 Cookie...', 'info');
+  try {
+    const r = await fetch('/api/login/cdp', {method: 'POST'});
+    const d = await r.json();
+    if (d.ok) {
+      status.logged_in = true; status.uin = d.uin;
+      renderStatus();
+      toast('登录成功! QQ: ' + d.uin, 'ok');
+    } else {
+      toast(d.detail || '提取失败', 'err');
+    }
+  } catch(e) { toast('提取失败: ' + e.message, 'err'); }
+}
+
+async function manualLogin() {
+  const uin = document.getElementById('uinInput').value.trim();
+  const key = document.getElementById('keyInput').value.trim();
+  if (!uin || !key) { toast('请填写 uin 和 key', 'err'); return; }
+  const cookie = `uin=${uin}; qqmusic_key=${key}`;
+
+  try {
+    const r = await fetch('/api/login/cookie', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({cookie})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      status.logged_in = true; status.uin = d.uin;
+      renderStatus();
+      toast('登录成功!', 'ok');
+    }
+  } catch(e) { toast('登录失败: ' + e.message, 'err'); }
+}
+
+async function clearLogin() {
+  try {
+    await fetch('/api/login/cookie', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({cookie: ''})
+    });
+  } catch(e) {}
+  status.logged_in = false; status.uin = '';
+  renderStatus();
+  toast('已清除登录状态', 'info');
+}
+
+// ── Settings ──
+async function saveSettings() {
+  const body = {
+    quality: document.getElementById('qualitySelect').value,
+    download_dir: document.getElementById('saveDirInput').value.trim(),
+    workers: parseInt(document.getElementById('workersInput').value) || 3,
+  };
+  try {
+    await fetch('/api/config', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    toast('设置已保存', 'ok');
+  } catch(e) { toast('保存失败', 'err'); }
+}
+
+// ── Download ──
+async function startDownload() {
+  if (selected.size === 0) return;
+  const selectedSongs = Array.from(selected).map(i => ({
+    mid: songs[i].mid, title: songs[i].title, singer: songs[i].singer,
+    album: songs[i].album, duration: songs[i].duration, is_gray: songs[i].is_gray,
+  }));
+
+  const body = {
+    songs: selectedSongs,
+    quality: document.getElementById('qualitySelect').value,
+    save_dir: document.getElementById('saveDirInput').value.trim(),
+    workers: parseInt(document.getElementById('workersInput').value) || 3,
+  };
+
+  try {
+    const r = await fetch('/api/download', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    const {task_id} = await r.json();
+
+    // SSE progress
+    const dp = document.getElementById('downloadProgress');
+    dp.style.display = 'block';
+    dp.innerHTML = `<div style="margin-top:8px;">
+      <div class="progress-header"><span>准备下载...</span><span id="progPct">0%</span></div>
+      <div class="progress-bar-outer"><div class="progress-bar-inner" id="progBar" style="width:0%"></div></div>
+      <div class="progress-live" id="progLive"></div>
+    </div>`;
+
+    const es = new EventSource('/api/download/progress/' + task_id);
+    es.onmessage = (ev) => {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === 'done') {
+        es.close();
+        dp.innerHTML = '';
+        const summaryArea = document.getElementById('summaryArea');
+        summaryArea.innerHTML = `<div class="summary">
+          <span class="ok">成功: ${msg.succeeded} 首</span>
+          <span class="fail">失败: ${msg.failed} 首</span>
+          <span class="skip">跳过: ${msg.skipped} 首</span>
+          <span style="color:var(--text-dim);margin-left:auto;">${msg.save_dir}</span>
+        </div>`;
+        if (msg.succeeded) toast(`成功下载 ${msg.succeeded} 首`, 'ok');
+        if (msg.failed) toast(`失败 ${msg.failed} 首`, 'err');
+      } else if (msg.type === 'progress') {
+        const pct = Math.round(msg.current / msg.total * 100);
+        document.getElementById('progPct').textContent = pct + '%';
+        document.getElementById('progBar').style.width = pct + '%';
+        document.getElementById('progLive').textContent =
+          `[${msg.current}/${msg.total}] ${msg.title} - ${msg.singer}  (✓${msg.succeeded} ✗${msg.failed} ⏭${msg.skipped})`;
+      } else if (msg.type === 'fallback') {
+        document.getElementById('progLive').textContent =
+          `🔄 换源: ${msg.title} → ${msg.source}`;
+      }
+    };
+    es.onerror = () => { es.close(); };
+  } catch(e) {
+    toast('下载失败: ' + e.message, 'err');
+  }
+}
+
+// ── Sources ──
+async function discoverSources() {
+  const el = document.getElementById('sourceResult');
+  el.innerHTML = '<span class="spinner"></span> 搜索中...';
+
+  const aiModel = document.getElementById('aiModel').value;
+  const aiKey = document.getElementById('aiKey').value.trim();
+  const aiBaseUrl = document.getElementById('aiBaseUrl').value.trim();
+
+  let ai_api = '', model = '', base_url = aiBaseUrl;
+  if (aiKey) {
+    if (aiModel === 'openai') { ai_api = 'openai'; if (!base_url) base_url = 'https://api.openai.com'; }
+    else if (aiModel === 'claude') { ai_api = 'claude'; if (!base_url) base_url = 'https://api.anthropic.com'; }
+  }
+
+  try {
+    const r = await fetch('/api/sources/discover', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ai_api, ai_key: aiKey, base_url, ai_model: model})
+    });
+    const d = await r.json();
+    if (d.sources && d.sources.length) {
+      el.innerHTML = '发现 ' + d.sources.length + ' 个新音源:<br>' +
+        d.sources.map(s => `🎵 ${s.name} (${Math.round(s.confidence*100)}%)`).join('<br>');
+    } else {
+      el.innerHTML = '未发现新音源';
+    }
+  } catch(e) { el.innerHTML = '搜索失败: ' + e.message; }
+}
+
+async function checkSources() {
+  const el = document.getElementById('sourceResult');
+  el.innerHTML = '<span class="spinner"></span> 测试中...';
+  try {
+    const r = await fetch('/api/sources/status');
+    const d = await r.json();
+    const items = Object.entries(d.sources || {}).map(([n, i]) =>
+      `${i.available ? '✅' : '❌'} ${n}: ${i.available ? i.results + ' results' : i.error}`);
+    el.innerHTML = items.join('<br>') || '无音源';
+  } catch(e) { el.innerHTML = '测试失败: ' + e.message; }
+}
+
+// ── Misc ──
+function toggleCollapse(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+// AI model change → show/hide key inputs
+document.getElementById('aiModel').addEventListener('change', function() {
+  document.getElementById('aiKeyGroup').style.display =
+    this.value === 'rule-based' ? 'none' : 'block';
+});
+
+// Enter key in search
+document.getElementById('searchInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') doSearch();
+});
+</script>
+
+</body>
+</html>
