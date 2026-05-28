@@ -11,6 +11,12 @@ QQ 音乐下载工具 — 搜索、歌单批量下载、VIP 歌曲下载、多�
 | Windows (x64) | [QQMusicDL-Windows-x64.zip](https://github.com/dylan121322/qqmusic-dl/releases/latest) |
 
 > 点开即用，无需安装 Python。解压后双击 `QQMusicDL` 即可。
+>
+> **macOS 用户**：若提示「无法验证是否包含恶意软件」，在终端执行以下命令后即可打开：
+>
+> ```bash
+> xattr -dr com.apple.quarantine /path/to/QQMusicDL   # 将解压后的 QQMusicDL 文件拖入终端即可自动填入路径
+> ```
 
 ## 功能
 
