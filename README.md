@@ -3,6 +3,15 @@
 QQ 音乐下载工具 — 搜索、歌单批量下载、VIP 歌曲下载、多音源自动回退、AI 发现新音源。
 提供 Web GUI（FastAPI + 原生 JS）和 CLI 两种界面，页面秒开无需等待。
 
+## 下载
+
+| 平台 | 下载 |
+|------|------|
+| macOS (Apple Silicon) | [QQMusicDL-macOS-arm64.zip](https://github.com/dylan121322/qqmusic-dl/releases/latest) |
+| Windows (x64) | [QQMusicDL-Windows-x64.zip](https://github.com/dylan121322/qqmusic-dl/releases/latest) |
+
+> 点开即用，无需安装 Python。解压后双击 `QQMusicDL` 即可。
+
 ## 功能
 
 - 关键词搜索 + 歌单批量下载（含短链接）
