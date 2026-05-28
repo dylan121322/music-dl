@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+*.egg-info/
+dist/
+build/
+.DS_Store
+/tmp/
+/output/
+/Downloads/
+*.m4a
+*.mp3
+*.flac
+/chrome-cdp/
