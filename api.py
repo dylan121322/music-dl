@@ -65,6 +65,16 @@ class QQMusicAPI:
 
     def search(self, keyword: str, page: int = 1, limit: int = 20) -> list[Song]:
         """Search songs by keyword. Returns list of Song objects."""
+        # Try primary search endpoint
+        songs = self._search_v1(keyword, page, limit)
+        if songs:
+            return songs
+        # Fallback to musicu.fcg search endpoint
+        logger.info("Primary search failed, trying fallback endpoint...")
+        return self._search_v2(keyword, page, limit)
+
+    def _search_v1(self, keyword: str, page: int, limit: int) -> list[Song]:
+        """Primary: client_search_cp endpoint."""
         params = {
             "w": keyword,
             "p": page,
@@ -76,7 +86,7 @@ class QQMusicAPI:
         try:
             data = self._get("/soso/fcgi-bin/client_search_cp", params)
         except Exception as e:
-            logger.warning("QQ Music search failed: %s", e)
+            logger.warning("QQ Music search v1 failed: %s", e)
             return []
         songs = []
         song_list = data.get("data", {}).get("song", {}).get("list", [])
@@ -91,6 +101,51 @@ class QQMusicAPI:
             )
             songs.append(song)
         return songs
+
+    def _search_v2(self, keyword: str, page: int, limit: int) -> list[Song]:
+        """Fallback: music.search.SearchCgiService via musicu.fcg."""
+        try:
+            time.sleep(0.8)
+            req = {
+                "search": {
+                    "module": "music.search.SearchCgiService",
+                    "method": "DoSearchForQQMusicDesktop",
+                    "param": {
+                        "searchid": "1",
+                        "remoteplace": "txt.qqmusic.top",
+                        "search_type": 0,
+                        "query": keyword,
+                        "page_num": page,
+                        "num_per_page": limit,
+                        "grp": 1,
+                    },
+                }
+            }
+            url = "https://u.y.qq.com/cgi-bin/musicu.fcg"
+            resp = self.session.post(url, json=req, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            song_list = (
+                data.get("search", {})
+                .get("data", {})
+                .get("body", {})
+                .get("song", {})
+                .get("list", [])
+            )
+            songs = []
+            for item in song_list:
+                songs.append(Song(
+                    mid=item.get("mid", ""),
+                    title=item.get("name", item.get("title", "")),
+                    singer=_extract_singer(item.get("singer", [])),
+                    album=item.get("album", {}).get("name", ""),
+                    duration=int(item.get("interval", 0)),
+                    is_gray=False if self.g_tk else _is_gray(item),
+                ))
+            return songs
+        except Exception as e:
+            logger.warning("QQ Music search v2 failed: %s", e)
+            return []
 
     def get_song_url(self, song_mid: str, quality: str = "320kbps") -> Optional[str]:
         """Get the playable download URL for a song. Returns None if unavailable."""
