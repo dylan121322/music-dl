@@ -54,7 +54,7 @@ jobs:
       - name: Package as zip
         run: |
           cd dist
-          zip -r MusicDL-macOS-arm64.zip QQMusicDL/
+          zip -r MusicDL-macOS-arm64.zip MusicDL/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
