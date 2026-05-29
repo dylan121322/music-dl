@@ -320,6 +320,46 @@ select {
 .source-badge.netease { background: #c62f2f; color: #fff; }
 .source-badge.kugou { background: #2196F3; color: #fff; }
 
+.source-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.src-btn {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font);
+}
+
+.src-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.src-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.qq-hint {
+  text-align: center;
+  padding: 10px 16px;
+  margin-bottom: 12px;
+  background: rgba(108, 92, 231, 0.1);
+  border: 1px solid rgba(108, 92, 231, 0.25);
+  border-radius: var(--radius-sm);
+  color: var(--accent-glow);
+  font-size: 0.85rem;
+}
+
 /* ── Download bar ── */
 .download-bar {
   display: flex;

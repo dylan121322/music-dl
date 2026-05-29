@@ -27,6 +27,10 @@
       <button class="btn btn-outline btn-sm btn-block" onclick="openChrome()">打开Chrome</button>
       <button class="btn btn-primary btn-sm btn-block" onclick="extractCookies()">提取Cookie</button>
     </div>
+    <div class="row" style="margin-bottom:6px;">
+      <button class="btn btn-sm" id="suspendBtn" onclick="toggleSuspend()" style="font-size:0.75rem;flex:1;display:none;background:var(--bg-input);color:var(--text-dim);">⏸ 暂停</button>
+      <button class="btn btn-sm" id="logoutBtn" onclick="doLogout()" style="font-size:0.75rem;flex:1;display:none;background:var(--bg-input);color:var(--text-dim);">退出</button>
+    </div>
 
     <div class="collapse-header" onclick="toggleCollapse('manualLogin')">
       手动输入 Cookie ▾
@@ -67,15 +71,18 @@
     <div class="section-title">🤖 AI 发现音源</div>
     <select id="aiModel" style="margin-bottom:6px;">
       <option value="rule-based">rule-based (免费)</option>
+      <option value="deepseek">DeepSeek (V4 Flash)</option>
       <option value="openai">OpenAI (gpt-4o-mini)</option>
       <option value="claude">Claude (haiku)</option>
     </select>
     <div id="aiKeyGroup" style="display:none;">
+      <input id="aiModelName" placeholder="模型名称，如 deepseek-chat" style="margin-bottom:6px;">
       <input id="aiKey" placeholder="API Key" type="password" style="margin-bottom:6px;">
       <input id="aiBaseUrl" placeholder="Base URL" style="margin-bottom:6px;">
     </div>
     <button class="btn btn-outline btn-sm btn-block" onclick="discoverSources()">开始搜索音源</button>
     <button class="btn btn-outline btn-sm btn-block" onclick="checkSources()">查看音源状态</button>
+    <button class="btn btn-outline btn-sm btn-block" onclick="saveAiConfig()">保存 AI 配置</button>
     <div id="sourceResult" style="margin-top:8px;font-size:0.78rem;"></div>
   </div>
 
@@ -89,10 +96,6 @@
   <h1>QQ 音乐下载器</h1>
   <p class="subtitle">搜索歌曲 → 勾选 → 一键下载</p>
 
-  <!-- Favorites + Playlist -->
-  <div class="action-row">
-    <button class="btn btn-outline" onclick="getFavorites()">❤️ 我的收藏</button>
-  </div>
   <div class="playlist-row">
     <input id="playlistUrl" placeholder="粘贴 QQ 音乐歌单链接... 例如 https://y.qq.com/n/ryqq/playlist/123456">
     <button class="btn btn-outline" onclick="getPlaylist()">获取歌单</button>
@@ -118,6 +121,14 @@
   <!-- Download bar -->
   <div id="downloadBar" class="download-bar" style="display:none;">
     <span>已选 <span class="count" id="selectedCount">0</span> 首</span>
+    <div class="source-picker">
+      <span style="font-size:0.78rem;color:var(--text-dim);">下载源</span>
+      <button class="src-btn active" data-src="auto" onclick="pickSource('auto', this)">自动</button>
+      <button class="src-btn" data-src="qq" onclick="pickSource('qq', this)">QQ</button>
+      <button class="src-btn" data-src="netease" onclick="pickSource('netease', this)">网易云</button>
+      <button class="src-btn" data-src="kugou" onclick="pickSource('kugou', this)">酷狗</button>
+      <button class="src-btn" data-src="web" onclick="pickSource('web', this)">网页</button>
+    </div>
     <button class="btn btn-primary" onclick="startDownload()">下载选中</button>
     <button class="btn btn-outline btn-sm" onclick="selectAll()">全选</button>
     <button class="btn btn-outline btn-sm" onclick="deselectAll()">取消</button>
@@ -137,6 +148,7 @@ let songs = [];
 let selected = new Set();
 let status = {};
 let currentPlatform = 'qq';
+let preferSource = 'auto';
 
 // ── Init ──
 async function init() {
@@ -158,6 +170,11 @@ function switchPlatform(p) {
   renderStatus();
 }
 
+function pickSource(src, btn) {
+  preferSource = src;
+  document.querySelectorAll('.src-btn').forEach(b => b.classList.toggle('active', b.dataset.src === src));
+}
+
 // ── Toast ──
 function toast(msg, type='info') {
   const c = document.getElementById('toastContainer');
@@ -173,18 +190,31 @@ function renderStatus() {
   const el = document.getElementById('loginStatus');
   const accounts = status.accounts || [];
   const acct = accounts.find(a => a.key === currentPlatform);
+  const btn = document.getElementById('suspendBtn');
+  const logout = document.getElementById('logoutBtn');
   if (acct && acct.logged_in) {
     el.innerHTML = `<span class="badge badge-ok">已登录</span> ${acct.name}` + (acct.user ? `: ${acct.user}` : '');
+    btn.textContent = '⏸ 暂停'; btn.style.display = '';
+    logout.style.display = '';
+    suspended = false;
+  } else if (suspended) {
+    const name = acct ? acct.name : '未知';
+    el.innerHTML = `<span class="badge badge-warn">未登录</span> ${name} <span style="font-size:0.7rem;color:var(--accent-glow);">(已暂停)</span>`;
+    btn.textContent = '▶ 恢复'; btn.style.display = '';
+    logout.style.display = 'none';
   } else {
     const name = acct ? acct.name : '未知';
     el.innerHTML = `<span class="badge badge-warn">未登录</span> ${name}`;
+    btn.style.display = 'none';
+    logout.style.display = 'none';
   }
 }
 
-function renderSongs() {
+function renderSongs(hint) {
+  hint = hint || '';
   const area = document.getElementById('resultsArea');
   if (!songs.length) {
-    area.innerHTML = '<div class="empty-state">未找到歌曲</div>';
+    area.innerHTML = hint + '<div class="empty-state">未找到歌曲</div>';
     document.getElementById('downloadBar').style.display = 'none';
     return;
   }
@@ -197,8 +227,8 @@ function renderSongs() {
   const sourceLabels = { qq: 'QQ', netease: '网易云', kugou: '酷狗' };
   songs.forEach((s, i) => {
     const gb = s.is_gray ? '<span class="gray-badge">VIP</span>' : '';
-    const src = s.source || 'qq';
-    const sb = `<span class="source-badge ${src}">${sourceLabels[src] || src}</span>`;
+    const sources = s.sources || [s.source || 'qq'];
+    const sb = sources.map(src => `<span class="source-badge ${src}">${sourceLabels[src] || src}</span>`).join('');
     const checked = selected.has(i) ? 'checked' : '';
     html += `<div class="song-row">
       <input type="checkbox" ${checked} onchange="toggleSong(${i}, this.checked)" id="cb${i}">
@@ -210,6 +240,7 @@ function renderSongs() {
   });
 
   html += '</div>';
+  html = hint + html;
   area.innerHTML = html;
   updateSelectedCount();
 }
@@ -250,7 +281,14 @@ async function doSearch() {
     const data = await r.json();
     songs = data.songs || [];
     selected.clear();
-    renderSongs();
+    // Show hint if QQ Music returned no results (likely not logged in)
+    const hasQQ = songs.some(s => s.source === 'qq');
+    const qqHint = (!hasQQ && songs.length > 0)
+      ? '<div class="qq-hint">QQ音乐未登录时可能限制搜索，请先 <b>登录 QQ音乐</b> 以获取完整结果</div>'
+      : (!hasQQ && songs.length === 0)
+      ? '<div class="qq-hint">未获取到 QQ 音乐结果，请尝试 <b>登录 QQ音乐</b> 后重试</div>'
+      : '';
+    renderSongs(qqHint);
   } catch(e) {
     area.innerHTML = '<div class="empty-state">搜索失败: ' + e.message + '</div>';
     toast('搜索失败: ' + e.message, 'err');
@@ -362,6 +400,49 @@ async function refreshStatus() {
   renderStatus();
 }
 
+let suspended = false;
+
+async function doLogout() {
+  if (!confirm('确认退出登录？将永久清除当前平台的 Cookie。')) return;
+  try {
+    await fetch('/api/login/cookie', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({cookie: '', platform: currentPlatform})
+    });
+  } catch(e) {}
+  suspended = false;
+  document.getElementById('suspendBtn').style.display = 'none';
+  document.getElementById('logoutBtn').style.display = 'none';
+  refreshStatus();
+  toast('已退出登录', 'info');
+}
+
+async function toggleSuspend() {
+  if (!suspended) {
+    try {
+      const r = await fetch('/api/login/suspend?platform=' + currentPlatform, {method: 'POST'});
+      const d = await r.json();
+      if (d.ok) {
+        suspended = true;
+        document.getElementById('suspendBtn').textContent = '▶ 恢复';
+        refreshStatus();
+        toast('已暂停登录状态', 'info');
+      }
+    } catch(e) { toast('操作失败', 'err'); }
+  } else {
+    try {
+      const r = await fetch('/api/login/restore?platform=' + currentPlatform, {method: 'POST'});
+      const d = await r.json();
+      if (d.ok) {
+        suspended = false;
+        document.getElementById('suspendBtn').textContent = '⏸ 暂停';
+        refreshStatus();
+        toast('已恢复登录状态', 'ok');
+      }
+    } catch(e) { toast('操作失败', 'err'); }
+  }
+}
+
 // ── Settings ──
 async function saveSettings() {
   const body = {
@@ -391,6 +472,7 @@ async function startDownload() {
     quality: document.getElementById('qualitySelect').value,
     save_dir: document.getElementById('saveDirInput').value.trim(),
     workers: parseInt(document.getElementById('workersInput').value) || 3,
+    prefer_source: preferSource,
   };
 
   try {
@@ -430,6 +512,8 @@ async function startDownload() {
         document.getElementById('progBar').style.width = pct + '%';
         document.getElementById('progLive').textContent =
           `[${msg.current}/${msg.total}] ${msg.title} - ${msg.singer}  (✓${msg.succeeded} ✗${msg.failed} ⏭${msg.skipped})`;
+      } else if (msg.type === 'status') {
+        document.getElementById('progLive').textContent = msg.text;
       } else if (msg.type === 'fallback') {
         document.getElementById('progLive').textContent =
           `🔄 换源: ${msg.title} → ${msg.source}`;
@@ -450,9 +534,11 @@ async function discoverSources() {
   const aiKey = document.getElementById('aiKey').value.trim();
   const aiBaseUrl = document.getElementById('aiBaseUrl').value.trim();
 
-  let ai_api = '', model = '', base_url = aiBaseUrl;
+  const aiModelName = document.getElementById('aiModelName').value.trim();
+  let ai_api = '', model = aiModelName, base_url = aiBaseUrl;
   if (aiKey) {
-    if (aiModel === 'openai') { ai_api = 'openai'; if (!base_url) base_url = 'https://api.openai.com'; }
+    if (aiModel === 'deepseek') { ai_api = 'openai'; if (!base_url) base_url = 'https://api.deepseek.com'; }
+    else if (aiModel === 'openai') { ai_api = 'openai'; if (!base_url) base_url = 'https://api.openai.com'; }
     else if (aiModel === 'claude') { ai_api = 'claude'; if (!base_url) base_url = 'https://api.anthropic.com'; }
   }
 
@@ -488,11 +574,53 @@ function toggleCollapse(id) {
   document.getElementById(id).classList.toggle('open');
 }
 
-// AI model change → show/hide key inputs
+async function saveAiConfig() {
+  const body = {
+    ai_model: document.getElementById('aiModel').value,
+    ai_model_name: document.getElementById('aiModelName').value.trim(),
+    ai_key: document.getElementById('aiKey').value.trim(),
+    ai_base_url: document.getElementById('aiBaseUrl').value.trim(),
+  };
+  try {
+    const r = await fetch('/api/config/ai', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    if (r.ok) toast('AI 配置已保存', 'ok');
+    else toast('保存失败', 'err');
+  } catch(e) { toast('保存失败', 'err'); }
+}
+
+// AI model change → show/hide key inputs + auto-fill defaults
 document.getElementById('aiModel').addEventListener('change', function() {
-  document.getElementById('aiKeyGroup').style.display =
-    this.value === 'rule-based' ? 'none' : 'block';
+  const group = document.getElementById('aiKeyGroup');
+  const model = this.value;
+  group.style.display = model === 'rule-based' ? 'none' : 'block';
+  if (model === 'deepseek') {
+    if (!document.getElementById('aiBaseUrl').value) document.getElementById('aiBaseUrl').value = 'https://api.deepseek.com';
+  }
 });
+
+// Load AI config on init
+(async function loadAiConfig() {
+  try {
+    const r = await fetch('/api/config/ai');
+    const d = await r.json();
+    if (d.ai_model) document.getElementById('aiModel').value = d.ai_model;
+    if (d.ai_model_name) document.getElementById('aiModelName').value = d.ai_model_name;
+    if (d.ai_key) document.getElementById('aiKey').value = d.ai_key;
+    if (d.ai_base_url) document.getElementById('aiBaseUrl').value = d.ai_base_url;
+    if (d.ai_model && d.ai_model !== 'rule-based') {
+      document.getElementById('aiKeyGroup').style.display = 'block';
+    }
+    // Auto-select deepseek if no model configured
+    if (!d.ai_model) {
+      document.getElementById('aiModel').value = 'deepseek';
+      document.getElementById('aiBaseUrl').value = 'https://api.deepseek.com';
+      document.getElementById('aiKeyGroup').style.display = 'block';
+    }
+  } catch(e) {}
+})();
 
 // Enter key in search
 document.getElementById('searchInput').addEventListener('keydown', function(e) {

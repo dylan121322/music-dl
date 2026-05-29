@@ -25,7 +25,7 @@ STATIC_DIR = Path(__file__).parent / "static"
 app = FastAPI(title="QQ Music Downloader")
 
 # ── Global state ──
-_state = {"api": None, "progress_queues": {}}
+_state = {"api": None, "progress_queues": {}, "suspended": {}}
 
 
 def get_api():
@@ -53,6 +53,7 @@ class DownloadRequest(BaseModel):
     quality: str = "320kbps"
     save_dir: str = ""
     workers: int = 3
+    prefer_source: str = "auto"  # "auto" | "qq" | "netease" | "kugou"
 
 
 class FavoritesRequest(BaseModel):
@@ -73,6 +74,13 @@ class ConfigUpdateRequest(BaseModel):
     quality: str | None = None
     download_dir: str | None = None
     workers: int | None = None
+
+
+class AiConfigRequest(BaseModel):
+    ai_model: str = ""
+    ai_model_name: str = ""
+    ai_key: str = ""
+    ai_base_url: str = ""
 
 
 class DiscoverRequest(BaseModel):
@@ -128,6 +136,28 @@ def api_status():
     }
 
 
+@app.get("/api/config/ai")
+def api_get_ai_config():
+    config = load_config(CONFIG_PATH)
+    return {
+        "ai_model": config.get("ai_model", ""),
+        "ai_model_name": config.get("ai_model_name", ""),
+        "ai_key": config.get("ai_key", ""),
+        "ai_base_url": config.get("ai_base_url", ""),
+    }
+
+
+@app.post("/api/config/ai")
+def api_save_ai_config(body: AiConfigRequest):
+    config = load_config(CONFIG_PATH)
+    config["ai_model"] = body.ai_model
+    config["ai_model_name"] = body.ai_model_name
+    config["ai_key"] = body.ai_key
+    config["ai_base_url"] = body.ai_base_url
+    save_config(CONFIG_PATH, config)
+    return {"ok": True}
+
+
 @app.get("/api/config")
 def api_get_config():
     config = load_config(CONFIG_PATH)
@@ -154,36 +184,41 @@ def api_save_config(body: ConfigUpdateRequest):
 def api_search(body: SearchRequest):
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    results: list[dict] = []
-    seen = set()
+    # keyed by title|singer, merges same song across platforms
+    merged: dict[str, dict] = {}
 
     def add_qq():
         api = get_api()
         for s in api.search(body.keyword, page=body.page, limit=body.limit):
             d = _song_to_dict(s)
             key = f"{d['title']}|{d['singer']}"
-            if key not in seen:
-                seen.add(key)
-                results.append(d)
+            if key in merged:
+                merged[key]["sources"].append(d["source"])
+                if not d["is_gray"]:  # free on QQ = mark free
+                    merged[key]["is_gray"] = False
+            else:
+                d["sources"] = [d["source"]]
+                merged[key] = d
 
     def add_source(instance, source_name, limit):
         try:
             for r in instance.search(body.keyword)[:limit]:
                 key = f"{r.title}|{r.artist}"
-                if key in seen:
-                    continue
-                seen.add(key)
-                mid = getattr(r, 'song_id', '') or str(hash(key))
-                results.append({
-                    "mid": f"{source_name}-{mid}",
-                    "title": r.title,
-                    "singer": r.artist,
-                    "album": "",
-                    "duration": r.duration,
-                    "duration_str": f"{r.duration // 60}:{r.duration % 60:02d}" if r.duration else "?:??",
-                    "is_gray": True,
-                    "source": source_name,
-                })
+                duration_str = f"{r.duration // 60}:{r.duration % 60:02d}" if r.duration else "?:??"
+                if key in merged:
+                    merged[key]["sources"].append(source_name)
+                else:
+                    mid = getattr(r, 'song_id', '') or str(hash(key))
+                    merged[key] = {
+                        "mid": f"{source_name}-{mid}",
+                        "title": r.title,
+                        "singer": r.artist,
+                        "album": "",
+                        "duration": r.duration,
+                        "duration_str": duration_str,
+                        "is_gray": True,
+                        "sources": [source_name],
+                    }
         except Exception:
             pass
 
@@ -197,8 +232,13 @@ def api_search(body: SearchRequest):
         for f in as_completed(futures):
             f.result()
 
-    # QQ results first, then others
-    results.sort(key=lambda r: (0 if r["source"] == "qq" else 1, r.get("title", "")))
+    # QQ first, then others; deduplicate sources list
+    results = list(merged.values())
+    for r in results:
+        r["source"] = r["sources"][0]  # primary source for backward compat
+        seen = set()
+        r["sources"] = [s for s in r["sources"] if not (s in seen or seen.add(s))]
+    results.sort(key=lambda r: (0 if "qq" in r["sources"] else 1, r.get("title", "")))
     return {"songs": results}
 
 
@@ -342,10 +382,38 @@ def api_login_cdp(platform: str = "qq"):
     return {"ok": True, "platform": platform, "user": user}
 
 
+@app.post("/api/login/suspend")
+def api_login_suspend(platform: str = "qq"):
+    """Save current cookies and temporarily clear them for testing."""
+    config = load_config(CONFIG_PATH)
+    cookie = get_account(config, platform)
+    if not cookie:
+        raise HTTPException(status_code=400, detail="No cookie to suspend")
+    _state["suspended"][platform] = cookie
+    save_account(CONFIG_PATH, platform, "")
+    if platform == "qq":
+        reset_api("")
+    set_source_cookies(platform, "")
+    return {"ok": True, "suspended": True, "platform": platform}
+
+
+@app.post("/api/login/restore")
+def api_login_restore(platform: str = "qq"):
+    """Restore previously suspended cookies."""
+    cookie = _state["suspended"].pop(platform, "")
+    if not cookie:
+        raise HTTPException(status_code=400, detail="No suspended cookie to restore")
+    save_account(CONFIG_PATH, platform, cookie)
+    if platform == "qq":
+        reset_api(cookie)
+    set_source_cookies(platform, cookie)
+    return {"ok": True, "suspended": False, "platform": platform}
+
+
 @app.get("/api/download/progress/{task_id}")
 async def api_download_progress(task_id: str):
     """SSE endpoint for download progress."""
-    q = asyncio.Queue()
+    q = _state["progress_queues"].get(task_id) or asyncio.Queue()
     _state["progress_queues"][task_id] = q
 
     async def event_stream():
@@ -377,17 +445,25 @@ def api_download(body: DownloadRequest):
 
     api_obj = get_api()
     songs = [_dict_to_song(s) for s in body.songs]
+    prefer_source = body.prefer_source
+
+    # Create queue before starting thread to avoid race
+    _state["progress_queues"][task_id] = asyncio.Queue()
 
     def _run():
         q = _state["progress_queues"].get(task_id)
         if not q:
             return
-        dl = Downloader(api_obj, save_dir, quality=quality, workers=workers)
+
+        def push_status(msg):
+            q.put_nowait({"type": "status", "text": msg})
+
+        dl = Downloader(api_obj, save_dir, quality=quality, workers=workers, prefer_source=prefer_source, progress_callback=push_status)
         results = {"succeeded": 0, "failed": 0, "skipped": 0}
         total = len(songs)
 
         for idx, song in enumerate(songs):
-            q.put({"type": "progress", "current": idx + 1, "total": total,
+            q.put_nowait({"type": "progress", "current": idx + 1, "total": total,
                    "title": song.title, "singer": song.singer,
                    "succeeded": results["succeeded"], "failed": results["failed"],
                    "skipped": results["skipped"]})
@@ -401,7 +477,7 @@ def api_download(body: DownloadRequest):
             else:
                 results["failed"] += 1
 
-        q.put({"type": "done", "succeeded": results["succeeded"],
+        q.put_nowait({"type": "done", "succeeded": results["succeeded"],
                "failed": results["failed"], "skipped": results["skipped"],
                "save_dir": save_dir})
 

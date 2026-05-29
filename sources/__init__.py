@@ -80,10 +80,12 @@ def test_all_sources() -> dict[str, dict]:
     return results
 
 
-def find_alternative(title: str, artist: str) -> list[SearchResult]:
-    """Search all sources for a song."""
+def find_alternative(title: str, artist: str, prefer_source: str = "auto") -> list[SearchResult]:
+    """Search all sources (or a specific source) for a song."""
     all_results = []
     for source in get_all_sources():
+        if prefer_source != "auto" and source.name != prefer_source:
+            continue
         try:
             matches = source.search(title, artist)
             for m in matches:
@@ -95,13 +97,24 @@ def find_alternative(title: str, artist: str) -> list[SearchResult]:
     return all_results
 
 
-def get_best_free(title: str, artist: str) -> Optional[SearchResult]:
-    """Get the best free alternative with download URL."""
-    results = find_alternative(title, artist)
-    for r in results:
+def get_best_free(title: str, artist: str, prefer_source: str = "auto") -> Optional[SearchResult]:
+    """Get the best free alternative with download URL, optionally from a specific source."""
+    results = find_alternative(title, artist, prefer_source=prefer_source)
+
+    # Prioritize exact title matches
+    exact = [r for r in results if r.title.strip() == title.strip()]
+    fuzzy = [r for r in results if r not in exact]
+
+    for r in exact:
         if r.free and r.download_url:
             return r
-    for r in results:
+    for r in fuzzy:
+        if r.free and r.download_url:
+            return r
+    for r in exact:
+        if r.free:
+            return r
+    for r in fuzzy:
         if r.free:
             return r
     return None
