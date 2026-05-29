@@ -233,9 +233,6 @@ qqmusic-dl/
 | [rich](https://github.com/Textualize/rich) | MIT |
 | [websocket-client](https://github.com/websocket-client/websocket-client) | Apache 2.0 |
 | [cryptography](https://github.com/pyca/cryptography) | Apache 2.0 / BSD |
-| [react-icons](https://github.com/react-icons/react-icons) | MIT |
-| [pptxgenjs](https://github.com/gitbrent/PptxGenJS) | MIT |
-
 ## 注意
 
 - 本工具仅供**个人备份**使用，请遵守相关法律法规
