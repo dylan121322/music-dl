@@ -2,10 +2,10 @@
 import json, requests, sys
 from pathlib import Path
 
-sys.path.insert(0, '/Users/boqing/Desktop/code/qqmusic-dl')
+sys.path.insert(0, '/Users/boqing/Desktop/code/music-dl')
 from utils import load_config, cookie_to_auth
 
-CONFIG_PATH = Path.home() / '.config' / 'qqmusic-dl' / 'config.json'
+CONFIG_PATH = Path.home() / '.config' / 'music-dl' / 'config.json'
 config = load_config(CONFIG_PATH)
 cookie_str = config.get('cookie', '')
 

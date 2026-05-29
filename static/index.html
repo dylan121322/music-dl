@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QQ Music Downloader</title>
+<title>Music DL</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
 <!-- Sidebar -->
 <aside class="sidebar">
-  <h2><span>🎵</span> QQ 音乐下载器</h2>
+  <h2><span>🎵</span> Music DL</h2>
 
   <!-- Login -->
   <div class="section" id="loginSection">
@@ -93,11 +93,11 @@
 
 <!-- Main -->
 <main class="main">
-  <h1>QQ 音乐下载器</h1>
+  <h1>Music DL</h1>
   <p class="subtitle">搜索歌曲 → 勾选 → 一键下载</p>
 
   <div class="playlist-row">
-    <input id="playlistUrl" placeholder="粘贴 QQ 音乐歌单链接... 例如 https://y.qq.com/n/ryqq/playlist/123456">
+    <input id="playlistUrl" placeholder="粘贴歌单链接... 例如 https://y.qq.com/n/ryqq/playlist/123456">
     <button class="btn btn-outline" onclick="getPlaylist()">获取歌单</button>
   </div>
 
@@ -284,9 +284,9 @@ async function doSearch() {
     // Show hint if QQ Music returned no results (likely not logged in)
     const hasQQ = songs.some(s => s.source === 'qq');
     const qqHint = (!hasQQ && songs.length > 0)
-      ? '<div class="qq-hint">QQ音乐未登录时可能限制搜索，请先 <b>登录 QQ音乐</b> 以获取完整结果</div>'
+      ? '<div class="qq-hint">部分平台未登录时可能限制搜索，请先<b>登录</b>以获取完整结果</div>'
       : (!hasQQ && songs.length === 0)
-      ? '<div class="qq-hint">未获取到 QQ 音乐结果，请尝试 <b>登录 QQ音乐</b> 后重试</div>'
+      ? '<div class="qq-hint">未获取到完整结果，请尝试<b>登录</b>后重试</div>'
       : '';
     renderSongs(qqHint);
   } catch(e) {

@@ -10,7 +10,7 @@ from rich.progress import (
     TransferSpeedColumn, TimeRemainingColumn, TaskID,
 )
 from models import Song
-from api import QQMusicAPI
+from api import MusicAPI
 from sources import get_best_free
 
 console = Console()
@@ -19,7 +19,7 @@ console = Console()
 class Downloader:
     """Download songs using multi-threading with Rich UI."""
 
-    def __init__(self, api: QQMusicAPI, save_dir: str, quality: str = "320kbps", workers: int = 3, prefer_source: str = "auto", progress_callback=None):
+    def __init__(self, api: MusicAPI, save_dir: str, quality: str = "320kbps", workers: int = 3, prefer_source: str = "auto", progress_callback=None):
         self.api = api
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(parents=True, exist_ok=True)
@@ -47,14 +47,14 @@ class Downloader:
 
         # Logged in: try QQ Music API first
         if logged_in:
-            self.progress("正在查询 QQ音乐下载链接...")
+            self.progress("正在查询主音源...")
             url = self.api.get_song_url(song.mid, self.quality)
             if url:
                 song.url = url
                 filepath = self.save_dir / song.filename
-                self.progress("QQ音乐链接获取成功，开始下载...")
+                self.progress("主音源链接获取成功，开始下载...")
                 return self._download_file(url, filepath, song.title)
-            self.progress("QQ音乐未返回链接，尝试备选音源...")
+            self.progress("主音源未返回链接，尝试备选音源...")
 
         # Not logged in or QQ Music failed: search free alternative sources
         self.progress(f"正在搜索备选音源 ({'优先: ' + self.prefer_source if self.prefer_source != 'auto' else '自动'})...")
@@ -434,7 +434,7 @@ def _load_ai_config() -> dict | None:
     """Load AI config from user config file."""
     import json as _json
     from pathlib import Path as _Path
-    config_path = _Path.home() / ".config" / "qqmusic-dl" / "config.json"
+    config_path = _Path.home() / ".config" / "music-dl" / "config.json"
     try:
         cfg = _json.loads(config_path.read_text())
         key = cfg.get("ai_key", "")

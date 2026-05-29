@@ -57,7 +57,7 @@ if __name__ == "__main__":
     cookie = get_cookies_via_ws()
     if cookie:
         import sys
-        sys.path.insert(0, "/Users/boqing/Desktop/code/qqmusic-dl")
+        sys.path.insert(0, "/Users/boqing/Desktop/code/music-dl")
         from utils import cookie_to_auth
         auth = cookie_to_auth(cookie)
         print(f"OK uin={auth['uin']}")

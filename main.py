@@ -4,14 +4,14 @@ import sys
 import argparse
 from pathlib import Path
 from rich.console import Console
-from api import QQMusicAPI
+from api import MusicAPI
 from models import Song
 from searcher import search_interactive
 from downloader import Downloader, print_summary
 from utils import load_config, save_config, QUALITY_MAP, cookie_to_auth
 
 console = Console()
-CONFIG_PATH = Path.home() / ".config" / "qqmusic-dl" / "config.json"
+CONFIG_PATH = Path.home() / ".config" / "music-dl" / "config.json"
 
 
 def main():
@@ -65,9 +65,9 @@ def main():
 
 
 def _get_api(config):
-    """Create QQMusicAPI with cookie from config if available."""
+    """Create MusicAPI with cookie from config if available."""
     cookie = config.get("cookie", "")
-    return QQMusicAPI(cookie_str=cookie)
+    return MusicAPI(cookie_str=cookie)
 
 
 def _get_downloader(api, config, quality=None, save_dir=None):
@@ -101,7 +101,7 @@ def cmd_download(args):
     import re
     if re.search(r'y\.qq\.com.*playlist', target):
         try:
-            pid = QQMusicAPI.extract_playlist_id(target)
+            pid = MusicAPI.extract_playlist_id(target)
         except ValueError:
             console.print(f"[red]Cannot parse playlist ID from: {target}[/red]")
             return

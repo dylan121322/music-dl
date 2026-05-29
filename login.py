@@ -13,7 +13,7 @@ USER_AGENT = (
     "Chrome/120.0.0.0 Safari/537.36"
 )
 
-QRCODE_PATH = Path.home() / ".config" / "qqmusic-dl" / "qrcode.png"
+QRCODE_PATH = Path.home() / ".config" / "music-dl" / "qrcode.png"
 
 
 def _show_image(img_path: str) -> None:

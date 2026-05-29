@@ -1,20 +1,20 @@
-"""Streamlit GUI for QQ Music Downloader."""
+"""Streamlit GUI for Music DL."""
 import streamlit as st
 from pathlib import Path
-from api import QQMusicAPI
+from api import MusicAPI
 from models import Song
 from downloader import Downloader
 from utils import load_config, save_config, QUALITY_MAP
 
-st.set_page_config(page_title="QQ Music Downloader", page_icon="🎵", layout="wide")
+st.set_page_config(page_title="Music DL", page_icon="🎵", layout="wide")
 
-CONFIG_PATH = Path.home() / ".config" / "qqmusic-dl" / "config.json"
+CONFIG_PATH = Path.home() / ".config" / "music-dl" / "config.json"
 
 # ── Session state init ──
 if "api" not in st.session_state:
     config_init = load_config(CONFIG_PATH)
     cookie = config_init.get("cookie", "")
-    st.session_state.api = QQMusicAPI(cookie_str=cookie)
+    st.session_state.api = MusicAPI(cookie_str=cookie)
 if "songs" not in st.session_state:
     st.session_state.songs = []
 if "downloaded" not in st.session_state:
@@ -24,7 +24,7 @@ api = st.session_state.api
 
 # ── Sidebar ──
 with st.sidebar:
-    st.title("🎵 QQ 音乐下载器")
+    st.title("🎵 Music DL")
     st.markdown("---")
 
     config = load_config(CONFIG_PATH)
@@ -85,7 +85,7 @@ with st.sidebar:
             if st.button("🧹 清除"):
                 config["cookie"] = ""
                 save_config(CONFIG_PATH, config)
-                st.session_state.api = QQMusicAPI()
+                st.session_state.api = MusicAPI()
                 st.rerun()
 
         if api.g_tk:
@@ -100,7 +100,7 @@ with st.sidebar:
     )
 
     multi_source = st.checkbox("🔀 多音源回退（VIP歌曲自动换源）", value=True,
-        help="QQ音乐VIP歌曲自动搜索网易云等免费音源替代")
+        help="平台VIP歌曲自动搜索网易云等免费音源替代")
 
     save_dir = st.text_input(
         "下载目录",
@@ -210,7 +210,7 @@ with st.sidebar:
                     st.write(f"  {icon} {name}: {detail}")
 
 # ── Main area ──
-st.title("QQ 音乐下载器")
+st.title("Music DL")
 st.caption("搜索歌曲 → 勾选 → 一键下载")
 
 # Search row
@@ -236,19 +236,19 @@ pl_col1, pl_col2 = st.columns([6, 1])
 with pl_col1:
     playlist_url = st.text_input(
         "歌单链接",
-        placeholder="粘贴 QQ 音乐歌单链接... 例如 https://y.qq.com/n/ryqq/playlist/123456",
+        placeholder="粘贴 歌单链接... 例如 https://y.qq.com/n/ryqq/playlist/123456",
         label_visibility="collapsed",
     )
 with pl_col2:
     if st.button("📋 获取歌单", use_container_width=True, disabled=not playlist_url.strip()):
         try:
-            pid = QQMusicAPI.extract_playlist_id(playlist_url.strip())
+            pid = MusicAPI.extract_playlist_id(playlist_url.strip())
         except ValueError:
             st.error("无法识别歌单链接")
             pid = None
         if pid:
             with st.spinner(f"正在加载歌单 {pid}..."):
-                songs = QQMusicAPI.extract_playlist_from_html(pid)
+                songs = MusicAPI.extract_playlist_from_html(pid)
             if songs:
                 st.session_state.songs = songs
                 st.success(f"获取到 {len(songs)} 首歌（通过浏览器提取）")

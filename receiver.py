@@ -9,7 +9,7 @@ from urllib.parse import parse_qs
 sys.path.insert(0, str(Path(__file__).parent))
 from utils import save_config, load_config, cookie_to_auth
 
-CONFIG_PATH = Path.home() / ".config" / "qqmusic-dl" / "config.json"
+CONFIG_PATH = Path.home() / ".config" / "music-dl" / "config.json"
 PORT = 18765
 
 

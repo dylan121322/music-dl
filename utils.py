@@ -15,7 +15,7 @@ QUALITY_MAP = {
 }
 
 PLATFORMS = {
-    "qq": {"name": "QQ音乐", "domain": "y.qq.com", "login_url": "https://y.qq.com", "color": "#6c5ce7"},
+    "qq": {"name": "平台A", "domain": "y.qq.com", "login_url": "https://y.qq.com", "color": "#6c5ce7"},
     "netease": {"name": "网易云音乐", "domain": "music.163.com", "login_url": "https://music.163.com", "color": "#e74c3c"},
     "kugou": {"name": "酷狗音乐", "domain": "kugou.com", "login_url": "https://www.kugou.com", "color": "#3498db"},
 }

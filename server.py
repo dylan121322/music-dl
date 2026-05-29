@@ -1,4 +1,4 @@
-"""FastAPI server for QQ Music Downloader — REST API + static frontend."""
+"""FastAPI server for Music DL — REST API + static frontend."""
 import sys
 import json
 import asyncio
@@ -13,16 +13,16 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from api import QQMusicAPI
+from api import MusicAPI
 from models import Song
 from downloader import Downloader
 from utils import load_config, save_config, QUALITY_MAP, cookie_to_auth, get_account, save_account, get_platform_status, PLATFORMS
 from sources import get_best_free, set_source_cookies, _netease_instance, _kugou_instance
 
-CONFIG_PATH = Path.home() / ".config" / "qqmusic-dl" / "config.json"
+CONFIG_PATH = Path.home() / ".config" / "music-dl" / "config.json"
 STATIC_DIR = Path(__file__).parent / "static"
 
-app = FastAPI(title="QQ Music Downloader")
+app = FastAPI(title="Music DL")
 
 # ── Global state ──
 _state = {"api": None, "progress_queues": {}, "suspended": {}}
@@ -31,12 +31,12 @@ _state = {"api": None, "progress_queues": {}, "suspended": {}}
 def get_api():
     if _state["api"] is None:
         config = load_config(CONFIG_PATH)
-        _state["api"] = QQMusicAPI(cookie_str=config.get("cookie", ""))
+        _state["api"] = MusicAPI(cookie_str=config.get("cookie", ""))
     return _state["api"]
 
 
 def reset_api(cookie_str: str = ""):
-    _state["api"] = QQMusicAPI(cookie_str=cookie_str)
+    _state["api"] = MusicAPI(cookie_str=cookie_str)
 
 
 # ── Pydantic models ──
@@ -254,10 +254,10 @@ def api_favorites(body: FavoritesRequest):
 @app.post("/api/playlist")
 def api_playlist(body: PlaylistRequest):
     try:
-        pid = QQMusicAPI.extract_playlist_id(body.url.strip())
+        pid = MusicAPI.extract_playlist_id(body.url.strip())
     except ValueError:
         raise HTTPException(status_code=400, detail="Cannot parse playlist URL")
-    songs = QQMusicAPI.extract_playlist_from_html(pid)
+    songs = MusicAPI.extract_playlist_from_html(pid)
     if not songs:
         api = get_api()
         songs = api.get_playlist_songs(pid)

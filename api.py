@@ -1,4 +1,4 @@
-"""QQ Music API client — search, play URLs, playlists."""
+"""Music API client — search, play URLs, playlists."""
 import sys
 import time
 import uuid
@@ -21,7 +21,7 @@ USER_AGENT = (
 )
 
 
-class QQMusicAPI:
+class MusicAPI:
     """Thin wrapper around QQ Music web API endpoints."""
 
     def __init__(self, cookie_str: str = ""):
@@ -252,7 +252,7 @@ class QQMusicAPI:
     def get_playlist_songs(self, playlist_id: str) -> list[Song]:
         """Fetch all songs from a QQ Music playlist by its ID."""
         # Method 1: CDP HTML extraction (most reliable)
-        songs = QQMusicAPI.extract_playlist_from_html(playlist_id)
+        songs = MusicAPI.extract_playlist_from_html(playlist_id)
         if songs:
             return songs
 
@@ -425,7 +425,7 @@ class QQMusicAPI:
             try:
                 resp = requests.get(url_or_id, allow_redirects=True, timeout=15,
                     headers={"User-Agent": USER_AGENT})
-                return QQMusicAPI.extract_playlist_id(resp.url)
+                return MusicAPI.extract_playlist_id(resp.url)
             except requests.RequestException:
                 pass
 

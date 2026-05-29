@@ -24,7 +24,7 @@ jobs:
         run: |
           pyinstaller \
             --onedir \
-            --name "QQMusicDL" \
+            --name "MusicDL" \
             --add-data "static:static" \
             --add-data "sources:sources" \
             --add-data "server.py:." \
@@ -54,13 +54,13 @@ jobs:
       - name: Package as zip
         run: |
           cd dist
-          zip -r QQMusicDL-macOS-arm64.zip QQMusicDL/
+          zip -r MusicDL-macOS-arm64.zip QQMusicDL/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: QQMusicDL-macOS-arm64
-          path: dist/QQMusicDL-macOS-arm64.zip
+          name: MusicDL-macOS-arm64
+          path: dist/MusicDL-macOS-arm64.zip
 
   build-windows:
     runs-on: windows-latest
@@ -78,14 +78,14 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
-          pyinstaller --onedir --name "QQMusicDL" --add-data "static;static" --add-data "sources;sources" --add-data "server.py;." --add-data "api.py;." --add-data "downloader.py;." --add-data "utils.py;." --add-data "models.py;." --add-data "cdp_cookies.py;." --add-data "browser_login.py;." --add-data "chrome_cookies.py;." --add-data "login.py;." --add-data "searcher.py;." --add-data "receiver.py;." --hidden-import "websocket" --hidden-import "uvicorn.logging" --hidden-import "uvicorn.loops" --hidden-import "uvicorn.loops.auto" --hidden-import "uvicorn.protocols" --hidden-import "uvicorn.protocols.http" --hidden-import "uvicorn.protocols.http.auto" --hidden-import "uvicorn.protocols.websockets" --hidden-import "uvicorn.protocols.websockets.auto" --hidden-import "uvicorn.lifespan" --hidden-import "uvicorn.lifespan.on" launcher.py
+          pyinstaller --onedir --name "MusicDL" --add-data "static;static" --add-data "sources;sources" --add-data "server.py;." --add-data "api.py;." --add-data "downloader.py;." --add-data "utils.py;." --add-data "models.py;." --add-data "cdp_cookies.py;." --add-data "browser_login.py;." --add-data "chrome_cookies.py;." --add-data "login.py;." --add-data "searcher.py;." --add-data "receiver.py;." --hidden-import "websocket" --hidden-import "uvicorn.logging" --hidden-import "uvicorn.loops" --hidden-import "uvicorn.loops.auto" --hidden-import "uvicorn.protocols" --hidden-import "uvicorn.protocols.http" --hidden-import "uvicorn.protocols.http.auto" --hidden-import "uvicorn.protocols.websockets" --hidden-import "uvicorn.protocols.websockets.auto" --hidden-import "uvicorn.lifespan" --hidden-import "uvicorn.lifespan.on" launcher.py
 
       - name: Package as zip
         run: |
-          Compress-Archive -Path dist/QQMusicDL/* -DestinationPath dist/QQMusicDL-Windows-x64.zip
+          Compress-Archive -Path dist/MusicDL/* -DestinationPath dist/MusicDL-Windows-x64.zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: QQMusicDL-Windows-x64
-          path: dist/QQMusicDL-Windows-x64.zip
+          name: MusicDL-Windows-x64
+          path: dist/MusicDL-Windows-x64.zip

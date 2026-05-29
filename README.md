@@ -1,4 +1,4 @@
-# QQ Music Downloader
+# Music DL
 
 QQ 音乐下载工具 — 聚合搜索（QQ + 网易云 + 酷狗）、VIP 歌曲下载、多音源自动回退、AI 音源发现、网页搜索兜底。
 提供 Web GUI（FastAPI + 原生 JS），页面秒开无需等待。
@@ -7,15 +7,15 @@ QQ 音乐下载工具 — 聚合搜索（QQ + 网易云 + 酷狗）、VIP 歌曲
 
 | 平台 | 下载 |
 |------|------|
-| macOS (Apple Silicon) | [QQMusicDL-macOS-arm64.zip](https://github.com/dylan121322/qqmusic-dl/releases/latest) |
-| Windows (x64) | [QQMusicDL-Windows-x64.zip](https://github.com/dylan121322/qqmusic-dl/releases/latest) |
+| macOS (Apple Silicon) | [MusicDL-macOS-arm64.zip](https://github.com/dylan121322/music-dl/releases/latest) |
+| Windows (x64) | [MusicDL-Windows-x64.zip](https://github.com/dylan121322/music-dl/releases/latest) |
 
-> 点开即用，无需安装 Python。解压后双击 `QQMusicDL` 即可。
+> 点开即用，无需安装 Python。解压后双击 `MusicDL` 即可。
 >
 > **macOS 用户**：若提示「无法验证是否包含恶意软件」，在终端执行以下命令后即可打开：
 >
 > ```bash
-> xattr -dr com.apple.quarantine /path/to/QQMusicDL   # 将解压后的 QQMusicDL 文件夹拖入终端即可自动填入路径
+> xattr -dr com.apple.quarantine /path/to/MusicDL   # 将解压后的 QQMusicDL 文件夹拖入终端即可自动填入路径
 > ```
 
 ## 功能
@@ -33,7 +33,7 @@ QQ 音乐下载工具 — 聚合搜索（QQ + 网易云 + 酷狗）、VIP 歌曲
 ## 安装
 
 ```bash
-cd qqmusic-dl
+cd music-dl
 pip install -r requirements.txt
 # Chrome CDP Cookie 提取需要：
 pip install websocket-client cryptography
@@ -120,7 +120,7 @@ python main.py config --dir ~/Music
 ## 项目结构
 
 ```
-qqmusic-dl/
+music-dl/
 ├── server.py           # FastAPI 后端 + 静态文件服务（Web 入口）
 ├── launcher.py         # 打包入口（PyInstaller 构建用）
 ├── static/             # 前端页面（原生 HTML/CSS/JS，零依赖）
@@ -191,11 +191,11 @@ qqmusic-dl/
 
 ## 配置文件
 
-`~/.config/qqmusic-dl/config.json`：
+`~/.config/music-dl/config.json`：
 
 ```json
 {
-  "download_dir": "~/Music/QQMusic",
+  "download_dir": "~/Music/Music",
   "quality": "320kbps",
   "workers": 3,
   "accounts": {
@@ -257,7 +257,7 @@ qqmusic-dl/
 
 若您是相关内容的权利人，认为本工具涉及的 API 分析参考或链接构成侵权，请通过以下方式联系，我们将在收到通知后及时处理：
 
-- **GitHub Issues**：[提交 Issue](https://github.com/dylan121322/qqmusic-dl/issues)
+- **GitHub Issues**：[提交 Issue](https://github.com/dylan121322/music-dl/issues)
 - **联系后处理时限**：收到有效通知后 7 个工作日内处理
 
 **通知内容需包含**：

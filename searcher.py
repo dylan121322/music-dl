@@ -2,13 +2,13 @@
 from rich.console import Console
 from rich.table import Table
 from rich.prompt import Prompt
-from api import QQMusicAPI
+from api import MusicAPI
 from models import Song
 
 console = Console()
 
 
-def search_interactive(api: QQMusicAPI, keyword: str, page: int = 1, limit: int = 10) -> list[Song]:
+def search_interactive(api: MusicAPI, keyword: str, page: int = 1, limit: int = 10) -> list[Song]:
     """Search songs and let user pick which ones to download. Returns selected songs."""
     with console.status(f"[bold cyan]Searching '{keyword}'...[/bold cyan]"):
         try:
