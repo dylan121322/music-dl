@@ -29,15 +29,27 @@ def main():
     if getattr(sys, 'frozen', False):
         sys.path.insert(0, str(Path(sys._MEIPASS)))
 
-    url = "http://127.0.0.1:8765"
-    print(f"[launcher] Starting Music DL at {url}")
+    # Bind to all interfaces so LAN devices can connect
+    import socket
+    host = "0.0.0.0"
+    port = 8765
+    local_url = f"http://127.0.0.1:{port}"
+    try:
+        lan_ip = socket.gethostbyname(socket.gethostname())
+        lan_url = f"http://{lan_ip}:{port}"
+    except Exception:
+        lan_url = local_url
 
-    threading.Thread(target=start_server, daemon=True).start()
+    print(f"[launcher] Music DL")
+    print(f"[launcher]   本机: {local_url}")
+    print(f"[launcher]   局域网: {lan_url}")
+
+    threading.Thread(target=start_server, args=(host, port), daemon=True).start()
     time.sleep(1.5)
 
     try:
         import webview
-        webview.create_window("Music DL", url, width=1200, height=800,
+        webview.create_window("Music DL", local_url, width=1200, height=800,
                               min_size=(800, 500), resizable=True,
                               confirm_close=True, text_select=True)
         webview.start()
