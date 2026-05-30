@@ -55,16 +55,29 @@ pip install -r requirements.txt
 pip install websocket-client cryptography
 ```
 
-### Android (Termux)
+### Android
 
+**方式 A: APK（推荐）**
+```bash
+cd android
+bash build_apk.sh    # 需要 Android SDK + JDK 11+
+# APK 输出在 app/build/outputs/apk/release/
+```
+
+**方式 B: Termux（无需 PC）**
 ```bash
 curl -O https://raw.githubusercontent.com/dylan121322/music-dl/main/termux_setup.sh
 bash termux_setup.sh
+# 然后浏览器打开 http://127.0.0.1:8765
 ```
 
-然后在 Android 浏览器打开 `http://127.0.0.1:8765`。
+> APK 构建需要 [Android SDK](https://developer.android.com/studio) + JDK 11+。Termux 方式需先安装 [Termux](https://f-droid.org/packages/com.termux/)（F-Droid 版）。
 
-> 需要先安装 [Termux](https://f-droid.org/packages/com.termux/)（F-Droid 版，Google Play 版已停更）。
+### 桌面端独立窗口（可选）
+
+```bash
+python webview_launcher.py    # 内置 WebView 窗口，无需打开浏览器
+```
 
 ## 快速开始
 
