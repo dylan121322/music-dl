@@ -12,20 +12,37 @@ android {
         minSdk 24
         targetSdk 34
         versionCode 1
-        versionName "1.4.0"
+        versionName "1.4.1"
 
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
         }
 
         python {
-            buildPython "/usr/bin/python3"
+            // Set CHAQUOPY_PYTHON env var to your Python path on Windows:
+            //   set CHAQUOPY_PYTHON=C:\Python312\python.exe
+            buildPython System.getenv("CHAQUOPY_PYTHON", "/usr/bin/python3")
             pip {
-                install "fastapi"
-                install "uvicorn"
+                install "fastapi==0.115.0"
+                install "uvicorn==0.30.0"
                 install "requests"
                 install "rich"
                 install "websocket-client"
+                install "pydantic==2.8.0"
+            }
+        }
+    }
+
+    signingConfigs {
+        release {
+            // Create a keystore: keytool -genkey -v -keystore musicdl.jks -alias musicdl -keyalg RSA -keysize 2048 -validity 10000
+            // Then set env vars: MUSICDL_KEYSTORE, MUSICDL_KEY_ALIAS, MUSICDL_KEY_PASS, MUSICDL_STORE_PASS
+            def ksFile = System.getenv("MUSICDL_KEYSTORE")
+            if (ksFile != null) {
+                storeFile file(ksFile)
+                storePassword System.getenv("MUSICDL_STORE_PASS")
+                keyAlias System.getenv("MUSICDL_KEY_ALIAS")
+                keyPassword System.getenv("MUSICDL_KEY_PASS")
             }
         }
     }
@@ -33,6 +50,7 @@ android {
     buildTypes {
         release {
             minifyEnabled false
+            signingConfig signingConfigs.release
         }
     }
 
