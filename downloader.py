@@ -203,7 +203,7 @@ class Downloader:
 
 
 def _search_web_for_song(title: str, artist: str) -> str | None:
-    """Last-resort: search known mp3 sites + general search engines with AI probe."""
+    """Multi-engine web search with AI-assisted candidate ranking."""
 
     # Phase 1: directly search known mp3 download sites
     known_sites = [
@@ -211,26 +211,55 @@ def _search_web_for_song(title: str, artist: str) -> str | None:
         ("http://www.yymp3.com/Search/{q}", "YYMP3"),
     ]
     for site_url, site_name in known_sites:
-        query = f"{title} {artist}"
         try:
-            url = site_url.format(q=quote(query))
+            url = site_url.format(q=quote(f"{title} {artist}"))
             mp3_url = _probe_page_for_mp3(title, artist, url, use_ai=True)
             if mp3_url:
                 return mp3_url
         except Exception:
             pass
 
-    # Phase 2: search general engines for more sources
-    blocked = ["y.qq.com", "c.y.qq.com", "u.y.qq.com",
-               "music.163.com", "kugou.com", "kuwo.cn", "migu.cn",
-               "youtube.com", "spotify.com",
-               "baike.baidu.com", "baike.sogou.com",
-               "beian.miit.gov.cn", "beian.mps.gov.cn"]
-
+    # Phase 2: search multiple engines in parallel, collect all candidate URLs
     query = f"{title} {artist} mp3 下载"
+    engines = [
+        _search_bing,
+        _search_duckduckgo,
+    ]
     all_urls: list[str] = []
+    with ThreadPoolExecutor(max_workers=len(engines)) as pool:
+        futures = [pool.submit(eng, query) for eng in engines]
+        for f in as_completed(futures):
+            try:
+                for u in f.result():
+                    if u not in all_urls:
+                        all_urls.append(u)
+            except Exception:
+                pass
 
-    # Bing search
+    # Phase 3: AI ranks the candidate URLs, most promising first
+    if len(all_urls) > 3:
+        all_urls = _ai_rank_urls(title, artist, all_urls)
+
+    # Phase 4: probe top candidates (first 2 with AI, rest regex only)
+    for i, page_url in enumerate(all_urls[:8]):
+        mp3_url = _probe_page_for_mp3(title, artist, page_url, use_ai=(i < 2))
+        if mp3_url:
+            return mp3_url
+    return None
+
+
+BLOCKED_DOMAINS = ["y.qq.com", "c.y.qq.com", "u.y.qq.com",
+                   "music.163.com", "kugou.com", "kuwo.cn", "migu.cn",
+                   "youtube.com", "spotify.com",
+                   "baike.baidu.com", "baike.sogou.com",
+                   "beian.miit.gov.cn", "beian.mps.gov.cn",
+                   "bing.com", "microsoft.com", "duckduckgo.com",
+                   "google.com", "baidu.com"]
+
+
+def _search_bing(query: str) -> list[str]:
+    """Search Bing for mp3 download pages."""
+    urls = []
     try:
         resp = requests.get(
             f"https://www.bing.com/search?q={quote(query)}&count=15",
@@ -242,17 +271,71 @@ def _search_web_for_song(title: str, artist: str) -> str | None:
         )
         for m in re.finditer(r'<h2[^>]*>.*?<a[^>]*href="(https?://[^"]+)"', resp.text, re.DOTALL | re.I):
             u = m.group(1)
-            if u.startswith("http") and not any(d in u.lower() for d in blocked) and u not in all_urls:
-                all_urls.append(u)
+            if u.startswith("http") and not any(d in u.lower() for d in BLOCKED_DOMAINS):
+                urls.append(u)
     except Exception:
         pass
+    return urls[:10]
 
-    # Probe each page (first 2 with AI)
-    for i, page_url in enumerate(all_urls[:6]):
-        mp3_url = _probe_page_for_mp3(title, artist, page_url, use_ai=(i < 2))
-        if mp3_url:
-            return mp3_url
-    return None
+
+def _search_duckduckgo(query: str) -> list[str]:
+    """Search DuckDuckGo (HTML version) for mp3 download pages."""
+    urls = []
+    try:
+        resp = requests.get(
+            f"https://html.duckduckgo.com/html/?q={quote(query)}",
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+            },
+            timeout=10,
+        )
+        # DDG HTML format: <a rel="nofollow" class="result__a" href="...">
+        for m in re.finditer(r'class="result__a"[^>]*href="(https?://[^"]+)"', resp.text, re.DOTALL | re.I):
+            u = m.group(1)
+            if not any(d in u.lower() for d in BLOCKED_DOMAINS):
+                urls.append(u)
+    except Exception:
+        pass
+    return urls[:10]
+
+
+def _ai_rank_urls(title: str, artist: str, urls: list[str]) -> list[str]:
+    """Use AI to rank candidate URLs by likelihood of containing mp3 downloads."""
+    ai_config = _load_ai_config()
+    if not ai_config or len(urls) <= 3:
+        return urls
+
+    url_list = "\n".join(f"{i+1}. {u}" for i, u in enumerate(urls[:15]))
+    prompt = f"""Rank these URLs by how likely they contain a direct mp3 download for "{title}" by "{artist}".
+
+Rules:
+- Music download sites (mp3 sites, music blogs, audio sharing) = HIGH
+- Streaming-only sites, lyrics sites, news, social media = LOW
+- Return ONLY the numbers of the top 5 URLs, comma-separated. Example: 3,7,1,12,5
+
+URLs:
+{url_list}"""
+
+    try:
+        resp = requests.post(
+            f"{ai_config['base_url']}/v1/chat/completions",
+            headers={"Authorization": f"Bearer {ai_config['key']}", "Content-Type": "application/json"},
+            json={"model": ai_config["model"], "messages": [{"role": "user", "content": prompt}], "max_tokens": 30, "temperature": 0},
+            timeout=10,
+        )
+        result = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+        # Parse ranked indices
+        import re as _re2
+        indices = [int(n) - 1 for n in _re2.findall(r'\d+', result) if 1 <= int(n) <= len(urls)]
+        ranked = [urls[i] for i in indices if i < len(urls)]
+        # Add remaining unranked URLs
+        for i, u in enumerate(urls):
+            if i not in indices:
+                ranked.append(u)
+        return ranked[:10]
+    except Exception:
+        return urls
 
 
 def _probe_page_for_mp3(title: str, artist: str, page_url: str, use_ai: bool) -> str | None:

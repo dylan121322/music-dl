@@ -17,7 +17,10 @@ from api import MusicAPI
 from models import Song
 from downloader import Downloader
 from utils import load_config, save_config, QUALITY_MAP, cookie_to_auth, get_account, save_account, get_platform_status, PLATFORMS
-from sources import get_best_free, set_source_cookies, _netease_instance, _kugou_instance
+from sources import get_best_free, set_source_cookies, _netease_instance, _kugou_instance, _github_instance, load_lx_sources
+
+# Load LX Music sources on startup
+load_lx_sources()
 
 CONFIG_PATH = Path.home() / ".config" / "music-dl" / "config.json"
 STATIC_DIR = Path(__file__).parent / "static"
@@ -228,6 +231,7 @@ def api_search(body: SearchRequest):
             pool.submit(add_qq),
             pool.submit(add_source, _netease_instance, "netease", body.limit),
             pool.submit(add_source, _kugou_instance, "kugou", body.limit),
+            pool.submit(add_source, _github_instance, "github", body.limit),
         ]
         for f in as_completed(futures):
             f.result()
@@ -249,6 +253,20 @@ def api_favorites(body: FavoritesRequest):
         raise HTTPException(status_code=401, detail="Not logged in")
     songs = api.get_fav_songs(page=body.page, size=body.size)
     return {"songs": [_song_to_dict(s) for s in songs]}
+
+
+@app.post("/api/play")
+def api_play(body: dict):
+    """Get streaming URL for preview playback."""
+    api = get_api()
+    mid = body.get("mid", "")
+    quality = body.get("quality", "320kbps")
+    if not mid:
+        raise HTTPException(status_code=400, detail="Missing song mid")
+    url = api.get_song_url(mid, quality=quality)
+    if not url:
+        raise HTTPException(status_code=404, detail="Cannot resolve play URL")
+    return {"url": url}
 
 
 @app.post("/api/playlist")
@@ -505,6 +523,17 @@ def api_sources_discover(body: DiscoverRequest):
                              "confidence": d.get("confidence", 0)} for d in discovered]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/sources/lx/import")
+def api_lx_import():
+    """Load LX Music JS sources from config directory."""
+    from sources import load_lx_sources
+    srcs = load_lx_sources()
+    platforms = []
+    for s in srcs:
+        platforms.extend(s.get_platforms())
+    return {"ok": True, "sources": len(srcs), "platforms": platforms}
 
 
 @app.get("/api/sources/status")

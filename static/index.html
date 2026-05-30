@@ -83,6 +83,7 @@
     <button class="btn btn-outline btn-sm btn-block" onclick="discoverSources()">开始搜索音源</button>
     <button class="btn btn-outline btn-sm btn-block" onclick="checkSources()">查看音源状态</button>
     <button class="btn btn-outline btn-sm btn-block" onclick="saveAiConfig()">保存 AI 配置</button>
+    <button class="btn btn-outline btn-sm btn-block" onclick="importLxSources()">导入 LX 音源</button>
     <div id="sourceResult" style="margin-top:8px;font-size:0.78rem;"></div>
   </div>
 
@@ -138,6 +139,21 @@
   <!-- Summary -->
   <div id="summaryArea"></div>
 </main>
+
+<!-- Audio player bar -->
+<div class="player-bar" id="playerBar" style="display:none;">
+  <audio id="audioPlayer" ontimeupdate="updateProgress()" onended="onPlayEnd()" onerror="onPlayError()"></audio>
+  <button class="play-btn-sm" id="playPauseBtn" onclick="togglePlayPause()">▶</button>
+  <div class="player-info">
+    <span class="player-title" id="playerTitle"></span>
+    <span class="player-artist" id="playerArtist"></span>
+  </div>
+  <div class="player-progress" onclick="seekAudio(event)">
+    <div class="player-progress-inner" id="playerProgress"></div>
+  </div>
+  <span class="player-time" id="playerTime">0:00</span>
+  <button class="play-btn-sm" onclick="stopPlayer()" style="font-size:0.8rem;">✕</button>
+</div>
 
 <!-- Toast container -->
 <div class="toast" id="toastContainer"></div>
@@ -224,7 +240,7 @@ function renderSongs(hint) {
       <span></span><span>歌曲</span><span>歌手</span><span>专辑</span><span>时长</span>
     </div>`;
 
-  const sourceLabels = { qq: 'QQ', netease: '网易云', kugou: '酷狗' };
+  const sourceLabels = { qq: 'QQ', netease: '网易云', kugou: '酷狗', github: 'GitHub' };
   songs.forEach((s, i) => {
     const gb = s.is_gray ? '<span class="gray-badge">VIP</span>' : '';
     const sources = s.sources || [s.source || 'qq'];
@@ -236,6 +252,7 @@ function renderSongs(hint) {
       <span class="singer">${esc(s.singer)}</span>
       <span class="album">${esc(s.album)}</span>
       <span class="duration">${s.duration_str}</span>
+      <button class="play-btn" onclick="playSong('${esc(s.mid)}', '${esc(s.title)}', '${esc(s.singer)}')" title="试听">▶</button>
     </div>`;
   });
 
@@ -557,6 +574,21 @@ async function discoverSources() {
   } catch(e) { el.innerHTML = '搜索失败: ' + e.message; }
 }
 
+async function importLxSources() {
+  const el = document.getElementById('sourceResult');
+  el.innerHTML = '<span class="spinner"></span> 加载 LX 音源...';
+  try {
+    const r = await fetch('/api/sources/lx/import', {method: 'POST'});
+    const d = await r.json();
+    if (d.ok) {
+      el.innerHTML = `已加载 ${d.sources} 个 LX 音源 (${(d.platforms||[]).join(', ') || '无'})<br>
+        <span style="font-size:0.7rem;color:var(--text-dim);">将 .js 音源文件放入 ~/.config/music-dl/lx_sources/ 目录</span>`;
+    } else {
+      el.innerHTML = '加载失败：未找到 LX 音源文件';
+    }
+  } catch(e) { el.innerHTML = '加载失败: ' + e.message; }
+}
+
 async function checkSources() {
   const el = document.getElementById('sourceResult');
   el.innerHTML = '<span class="spinner"></span> 测试中...';
@@ -621,6 +653,68 @@ document.getElementById('aiModel').addEventListener('change', function() {
     }
   } catch(e) {}
 })();
+
+// ── Audio Player ──
+function playSong(mid, title, artist) {
+  const player = document.getElementById('audioPlayer');
+  const bar = document.getElementById('playerBar');
+  const quality = document.getElementById('qualitySelect').value;
+
+  document.getElementById('playerTitle').textContent = title;
+  document.getElementById('playerArtist').textContent = artist;
+  bar.style.display = 'flex';
+  document.getElementById('playPauseBtn').textContent = '⏳';
+
+  fetch('/api/play', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({mid: mid, quality: quality})
+  }).then(r => r.json()).then(d => {
+    player.src = d.url;
+    player.play().catch(() => {});
+    document.getElementById('playPauseBtn').textContent = '⏸';
+  }).catch(() => {
+    document.getElementById('playPauseBtn').textContent = '▶';
+    toast('无法获取播放链接', 'err');
+  });
+}
+
+function togglePlayPause() {
+  const player = document.getElementById('audioPlayer');
+  if (player.paused) { player.play().catch(() => {}); document.getElementById('playPauseBtn').textContent = '⏸'; }
+  else { player.pause(); document.getElementById('playPauseBtn').textContent = '▶'; }
+}
+
+function stopPlayer() {
+  const player = document.getElementById('audioPlayer');
+  player.pause(); player.src = '';
+  document.getElementById('playerBar').style.display = 'none';
+}
+
+function updateProgress() {
+  const player = document.getElementById('audioPlayer');
+  if (player.duration) {
+    const pct = (player.currentTime / player.duration) * 100;
+    document.getElementById('playerProgress').style.width = pct + '%';
+    const m = Math.floor(player.currentTime / 60);
+    const s = Math.floor(player.currentTime % 60);
+    document.getElementById('playerTime').textContent = m + ':' + String(s).padStart(2,'0');
+  }
+}
+
+function seekAudio(e) {
+  const player = document.getElementById('audioPlayer');
+  if (player.duration) {
+    const rect = e.target.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    player.currentTime = pct * player.duration;
+  }
+}
+
+function onPlayEnd() { document.getElementById('playPauseBtn').textContent = '▶'; }
+function onPlayError() {
+  document.getElementById('playPauseBtn').textContent = '▶';
+  toast('播放失败，可能是VIP歌曲或链接过期', 'err');
+}
 
 // Enter key in search
 document.getElementById('searchInput').addEventListener('keydown', function(e) {

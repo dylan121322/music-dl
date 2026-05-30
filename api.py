@@ -148,21 +148,33 @@ class MusicAPI:
             return []
 
     def get_song_url(self, song_mid: str, quality: str = "320kbps") -> Optional[str]:
-        """Get the playable download URL for a song. Returns None if unavailable."""
-        data = self._get_vkey(song_mid)
-        if not data:
-            return None
+        """Get the playable download URL for a song. Returns None if unavailable.
 
-        purl = data.get("purl", "")
-        if not purl:
-            return None  # song is paywalled or unavailable
+        Quality levels: 128kbps (songtype=0), 320kbps (songtype=1), flac (songtype=2).
+        Higher qualities require login. When not logged in, falls back to 128kbps.
+        """
+        st_map = {"128kbps": 0, "320kbps": 1, "flac": 2}
+        songtype = st_map.get(quality, 1)
 
-        server = data.get("server", "http://aqqmusic.tc.qq.com/")
-        # purl already has the full query string (guid, vkey, uin, fromtag)
-        return server + purl
+        # Try requested quality first
+        data = self._get_vkey(song_mid, songtype)
+        if data and data.get("purl"):
+            purl = data["purl"]
+            server = data.get("server", "http://aqqmusic.tc.qq.com/")
+            return server + purl
 
-    def _get_vkey(self, song_mid: str) -> Optional[dict]:
-        """Request the vkey needed to construct the play URL."""
+        # If logged in but higher quality failed, try 128kbps
+        if songtype > 0:
+            data = self._get_vkey(song_mid, 0)
+            if data and data.get("purl"):
+                purl = data["purl"]
+                server = data.get("server", "http://aqqmusic.tc.qq.com/")
+                return server + purl
+
+        return None
+
+    def _get_vkey(self, song_mid: str, songtype: int = 0) -> Optional[dict]:
+        """Request the vkey needed to construct the play URL. songtype: 0=lq 1=hq 2=flac."""
         time.sleep(0.8)  # rate limit
         req_data = {
             "req_0": {
@@ -171,7 +183,7 @@ class MusicAPI:
                 "param": {
                     "guid": self.guid,
                     "songmid": [song_mid],
-                    "songtype": [0],
+                    "songtype": [songtype],
                     "uin": self.uin,
                     "loginflag": 1,
                     "platform": "20",

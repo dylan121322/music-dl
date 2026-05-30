@@ -87,15 +87,17 @@ class NeteaseSource(MusicSource):
         results.sort(key=lambda r: r.match_score, reverse=True)
         return results
 
-    def get_download_url(self, song_id: str) -> Optional[str]:
+    def get_download_url(self, song_id: str, quality: str = "320kbps") -> Optional[str]:
         if not song_id:
             return None
+        br_map = {"128kbps": 128000, "320kbps": 320000, "flac": 999000}
+        br = br_map.get(quality, 320000)
         try:
             if self.logged_in:
                 # Authenticated: try higher quality API
                 resp = self.session.get(
                     f"{BASE}/api/song/enhance/player/url",
-                    params={"id": song_id, "ids": f"[{song_id}]", "br": 320000},
+                    params={"id": song_id, "ids": f"[{song_id}]", "br": br},
                     timeout=5,
                 )
                 data = resp.json().get("data", [])

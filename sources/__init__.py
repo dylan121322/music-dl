@@ -1,22 +1,58 @@
 """Multi-source music download with auto-discovery + AI engine."""
 from typing import Optional
+from pathlib import Path as _Path
 from sources.base import MusicSource, SearchResult
 from sources.netease import NeteaseSource
 from sources.kugou import KugouSource
+from sources.github import GithubSource
 from sources.template import TemplateSource
 from sources.discovery import discover_sources, crawl_page_for_music
 
 # Global source instances (created once, may get auth cookies later)
 _netease_instance = NeteaseSource()
 _kugou_instance = KugouSource()
+_github_instance = GithubSource()
 
 RELIABLE_SOURCES: list[MusicSource] = [
     _netease_instance,
     _kugou_instance,
+    _github_instance,
 ]
 
 # AI-discovered sources
 _ai_sources: list[TemplateSource] = []
+
+# LX Music JS sources (loaded from ~/.config/music-dl/lx_sources/)
+_lx_sources: list = []
+_lx_source_dir = _Path(__file__).parent.parent / ".lx_sources"
+
+
+def load_lx_sources() -> list:
+    """Load LX Music JS sources from config directory."""
+    global _lx_sources
+    from pathlib import Path as _P
+    config_dir = _P.home() / ".config" / "music-dl" / "lx_sources"
+    if not config_dir.exists():
+        return _lx_sources
+
+    from sources.lx_adapter import LxMusicSource
+    _lx_sources = []
+    for f in config_dir.glob("*.js"):
+        try:
+            src = LxMusicSource(str(f))
+            _lx_sources.append(src)
+        except Exception:
+            pass
+    return _lx_sources
+
+
+def get_all_sources() -> list[MusicSource]:
+    """Get all available sources."""
+    sources: list[MusicSource] = list(RELIABLE_SOURCES)
+    sources.extend(discover_sources())
+    sources.extend(_ai_sources)
+    sources.extend(_lx_sources)
+    return sources
 
 
 def set_source_cookies(platform: str, cookie_str: str):

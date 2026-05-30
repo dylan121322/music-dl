@@ -47,16 +47,22 @@ class KugouSource(MusicSource):
         results.sort(key=lambda r: r.match_score, reverse=True)
         return results
 
-    def get_download_url(self, song_id: str) -> Optional[str]:
+    def get_download_url(self, song_id: str, quality: str = "320kbps") -> Optional[str]:
         """Try to get a download URL. Returns None if unavailable (common for KuGou)."""
         if not song_id:
             return None
+        # KuGou quality: 128=hq, 320=sq, flac=zq (lossless)
+        kq_map = {"128kbps": "hq", "320kbps": "sq", "flac": "zq"}
+        kq = kq_map.get(quality, "sq")
         try:
             resp = requests.get(MOBILE_API, params={
-                "hash": song_id.upper(), "cmd": "playInfo", "format": "json",
+                "hash": song_id.upper(), "cmd": "playInfo", "format": "json", "kq": kq,
             }, headers={"User-Agent": "Android712-AndroidPhone"}, timeout=10)
             data = resp.json()
             url = data.get("url", "")
+            if not url:
+                # Fallback to standard quality
+                url = data.get("sqUrl", "") or data.get("hqUrl", "")
             if url:
                 return url
         except Exception:
