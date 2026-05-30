@@ -53,6 +53,9 @@ public class MainActivity extends AppCompatActivity {
         Log.i(TAG, "Starting Music DL...");
 
         webView = new WebView(this);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
         setContentView(webView);
 
         // Enable cookies for login
