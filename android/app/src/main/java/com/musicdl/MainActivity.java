@@ -2,6 +2,8 @@ package com.musicdl;
 
 import android.os.Bundle;
 import android.util.Log;
+import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -16,18 +18,54 @@ public class MainActivity extends AppCompatActivity {
     private static final String URL = "http://127.0.0.1:8765";
     private WebView webView;
 
+    /** JavaScript bridge: called from web frontend to interact with Android */
+    public class AppBridge {
+        @JavascriptInterface
+        public void toast(String msg) {
+            runOnUiThread(() -> Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show());
+        }
+
+        @JavascriptInterface
+        public String getCookies(String domain) {
+            String cookies = CookieManager.getInstance().getCookie(domain);
+            Log.i(TAG, "Cookies for " + domain + ": " + (cookies != null ? cookies.substring(0, Math.min(50, cookies.length())) + "..." : "null"));
+            return cookies != null ? cookies : "";
+        }
+
+        @JavascriptInterface
+        public void loginPlatform(String platform, String url) {
+            // Navigate WebView to platform login page
+            runOnUiThread(() -> {
+                Toast.makeText(MainActivity.this, "请在页面中登录，完成后按返回键", Toast.LENGTH_LONG).show();
+                webView.loadUrl(url);
+            });
+        }
+
+        @JavascriptInterface
+        public void goHome() {
+            runOnUiThread(() -> webView.loadUrl(URL));
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.i(TAG, "Starting Music DL...");
 
-        // Setup WebView first (will show error page if server fails)
+        // Enable third-party cookies for login
+        CookieManager.getInstance().setAcceptThirdPartyCookies(null, true);
+        CookieManager.getInstance().setAcceptCookie(true);
+
         webView = new WebView(this);
         setContentView(webView);
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Mobile Safari/537.36");
+
+        // Register JS bridge
+        webView.addJavascriptInterface(new AppBridge(), "Android");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -40,6 +78,10 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 Log.i(TAG, "Page loaded: " + url);
+                // If we navigated away for login and now came back to Music DL, inject cookie helper
+                if (url != null && url.startsWith(URL)) {
+                    view.loadUrl("javascript:if(window.onAndroidCookiesReady){window.onAndroidCookiesReady()}");
+                }
             }
         });
 

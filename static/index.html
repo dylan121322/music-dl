@@ -362,6 +362,33 @@ async function getPlaylist() {
   }
 }
 
+// ── Android Native Bridge ──
+const isAndroid = typeof window.Android !== 'undefined';
+if (isAndroid) {
+  // On Android, use WebView-based login
+  window.originalOpenChrome = openChrome;
+  openChrome = function() {
+    const urls = { qq: 'https://y.qq.com', netease: 'https://music.163.com', kugou: 'https://www.kugou.com' };
+    window.Android.loginPlatform(currentPlatform, urls[currentPlatform] || urls.qq);
+  };
+
+  window.originalExtractCookies = extractCookies;
+  extractCookies = async function() {
+    // Get cookies from WebView for current platform
+    const domains = { qq: 'y.qq.com', netease: 'music.163.com', kugou: 'kugou.com' };
+    const domain = domains[currentPlatform];
+    const cookie = window.Android.getCookies(domain);
+    if (cookie) {
+      document.getElementById('cookieInput').value = cookie;
+      await manualLogin();
+      window.Android.toast('Cookie 已提取: ' + currentPlatform);
+      window.Android.goHome();
+    } else {
+      window.Android.toast('未找到 Cookie，请先登录');
+    }
+  };
+}
+
 // ── Login ──
 async function openChrome() {
   toast('正在打开 Chrome...', 'info');
