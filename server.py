@@ -257,6 +257,40 @@ def api_favorites(body: FavoritesRequest):
     return {"songs": [_song_to_dict(s) for s in songs]}
 
 
+@app.get("/api/downloads")
+def api_downloads():
+    """List downloaded music files."""
+    config = load_config(CONFIG_PATH)
+    dl_dir = Path(config.get("download_dir", str(Path.home() / "Music")))
+    if not dl_dir.exists():
+        return {"files": [], "dir": str(dl_dir)}
+    files = []
+    for f in sorted(dl_dir.glob("*.mp3"), key=lambda x: x.stat().st_mtime, reverse=True):
+        files.append({
+            "name": f.stem,
+            "path": str(f),
+            "size": f.stat().st_size,
+            "mtime": f.stat().st_mtime,
+        })
+    for f in sorted(dl_dir.glob("*.m4a"), key=lambda x: x.stat().st_mtime, reverse=True):
+        files.append({
+            "name": f.stem,
+            "path": str(f),
+            "size": f.stat().st_size,
+            "mtime": f.stat().st_mtime,
+        })
+    return {"files": files, "dir": str(dl_dir)}
+
+
+@app.get("/api/stream")
+def api_stream(path: str):
+    """Stream a local music file for playback."""
+    file_path = Path(path)
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(file_path, media_type="audio/mpeg")
+
+
 @app.post("/api/play")
 def api_play(body: dict):
     """Get streaming URL for preview playback."""

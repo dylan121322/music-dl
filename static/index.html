@@ -192,7 +192,53 @@ document.querySelectorAll('.sheet-overlay').forEach(el=>{el.addEventListener('cl
 // ── Tabs ──
 function switchTab(t){
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.id.startsWith('tab'+t.charAt(0).toUpperCase()+t.slice(1))));
-  if(t==='login') openSheet('loginSheet');
+  if(t==='login'){openSheet('loginSheet');return}
+  if(t==='downloads'){loadDownloads();return}
+  if(t==='search'){document.getElementById('searchInput').focus()}
+}
+
+async function loadDownloads(){
+  const area=document.getElementById('trackList');
+  area.innerHTML='<div class="empty-state"><div class="spinner"></div><p>加载中...</p></div>';
+  document.getElementById('downloadBar').style.display='none';
+  document.getElementById('downloadProgress').style.display='none';
+  try{
+    const r=await fetch('/api/downloads');const d=await r.json();
+    if(!d.files.length){
+      area.innerHTML='<div class="empty-state"><div class="icon">📥</div><p>还没有下载任何歌曲</p><p style="font-size:0.75rem;color:var(--text-dim)">'+d.dir+'</p></div>';
+      return;
+    }
+    let html='<div style="padding:4px 4px 8px;font-size:0.72rem;color:var(--text-dim)">'+d.dir+' · '+d.files.length+' 首</div>';
+    d.files.forEach((f,i)=>{
+      const size=(f.size/1048576).toFixed(1);
+      html+=`<div class="track-card" onclick="playLocal('${escUrl(f.path)}','${esc(f.name)}')">
+        <div class="art" style="background:linear-gradient(135deg,var(--accent),#6366f1)">▶</div>
+        <div class="info">
+          <div class="title">${esc(f.name)}</div>
+          <div class="meta">${size} MB</div>
+        </div>
+        <div class="actions" onclick="event.stopPropagation()">
+          <button onclick="playLocal('${escUrl(f.path)}','${esc(f.name)}')">▶</button>
+        </div>
+      </div>`;
+    });
+    area.innerHTML=html;
+    songs=[];selected.clear();
+  }catch(e){area.innerHTML='<div class="empty-state"><div class="icon">⚠</div><p>加载失败</p></div>'}
+}
+
+function escUrl(s){return s.replace(/'/g,"\\'").replace(/"/g,'&quot;')}
+function playLocal(path,name){
+  const player=document.getElementById('audioPlayer');
+  const bar=document.getElementById('miniPlayer');
+  document.getElementById('playerTitle').textContent=name;
+  document.getElementById('playerArtist').textContent='本地文件';
+  document.getElementById('playerArt').textContent='📁';
+  bar.classList.add('active');
+  document.getElementById('playPauseBtn').textContent='⏳';
+  player.src='/api/stream?path='+encodeURIComponent(path);
+  player.play().catch(()=>{});
+  document.getElementById('playPauseBtn').textContent='⏸';
 }
 
 // ── Source Picker ──
