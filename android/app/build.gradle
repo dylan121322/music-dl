@@ -21,14 +21,14 @@ android {
         python {
             // Set CHAQUOPY_PYTHON env var to your Python path on Windows:
             //   set CHAQUOPY_PYTHON=C:\Python312\python.exe
-            buildPython System.getenv("CHAQUOPY_PYTHON", "/usr/bin/python3")
+            buildPython System.getenv("CHAQUOPY_PYTHON") ?: "/usr/bin/python3"
             pip {
-                install "fastapi==0.115.0"
-                install "uvicorn==0.30.0"
+                install "fastapi==0.95.2"
+                install "uvicorn==0.23.2"
                 install "requests"
                 install "rich"
                 install "websocket-client"
-                install "pydantic==2.8.0"
+                install "pydantic==1.10.15"
             }
         }
     }

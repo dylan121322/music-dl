@@ -24,7 +24,20 @@ echo ""
 
 PY_DIR="app/src/main/python"
 echo "[1/3] Copying Python sources..."
+
+# Save server_runner.py (bundled with the project, not from ../)
+RUNNER_SAVED=$(mktemp)
+if [ -f "$PY_DIR/server_runner.py" ]; then
+    cp "$PY_DIR/server_runner.py" "$RUNNER_SAVED"
+fi
+
 rm -rf "$PY_DIR" && mkdir -p "$PY_DIR"
+
+# Restore server_runner.py
+if [ -s "$RUNNER_SAVED" ]; then
+    cp "$RUNNER_SAVED" "$PY_DIR/server_runner.py"
+    rm -f "$RUNNER_SAVED"
+fi
 cp ../api.py "$PY_DIR/"
 cp ../models.py "$PY_DIR/"
 cp ../utils.py "$PY_DIR/"
