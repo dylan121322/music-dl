@@ -52,12 +52,11 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         Log.i(TAG, "Starting Music DL...");
 
-        // Enable third-party cookies for login
-        CookieManager.getInstance().setAcceptThirdPartyCookies(null, true);
-        CookieManager.getInstance().setAcceptCookie(true);
-
         webView = new WebView(this);
         setContentView(webView);
+
+        // Enable cookies for login
+        CookieManager.getInstance().setAcceptCookie(true);
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
