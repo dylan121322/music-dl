@@ -1,55 +1,54 @@
 #!/usr/bin/env python3
-"""QQ Music Downloader — one-click launcher.
+"""Music DL — standalone launcher with embedded native WebView.
 
-Starts the FastAPI server and opens the browser.
-Works both as a standalone script and as a PyInstaller bundle entry point.
+Starts the FastAPI server and displays the app in a native window
+on macOS (WebKit), Windows (Edge WebView2), and Linux (GTK WebKit).
 """
+
 import sys
-import os
 import time
 import threading
-import webbrowser
 from pathlib import Path
-
-import uvicorn
 
 
 def get_static_dir() -> Path:
-    """Get static files directory, handling PyInstaller bundle paths."""
     if getattr(sys, 'frozen', False):
-        # Running as PyInstaller bundle
-        base = Path(sys._MEIPASS)
-    else:
-        base = Path(__file__).parent
-    return base / "static"
+        return Path(sys._MEIPASS) / "static"
+    return Path(__file__).parent / "static"
 
 
-def open_browser():
-    """Open browser after a short delay to let server start."""
-    time.sleep(2)
-    webbrowser.open("http://127.0.0.1:8765")
+def start_server(host="127.0.0.1", port=8765):
+    import uvicorn
+    uvicorn.run("server:app", host=host, port=port, reload=False, log_level="warning")
 
 
 def main():
-    # Ensure server.py can find static files
     static_dir = get_static_dir()
-
-    # Patch the STATIC_DIR in server module
     import server
     server.STATIC_DIR = static_dir
-
-    # Ensure project root is importable for sources, utils, etc.
     if getattr(sys, 'frozen', False):
         sys.path.insert(0, str(Path(sys._MEIPASS)))
 
-    print(f"[launcher] Static dir: {static_dir}")
-    print(f"[launcher] Starting server at http://127.0.0.1:8765")
+    url = "http://127.0.0.1:8765"
+    print(f"[launcher] Starting Music DL at {url}")
 
-    # Open browser in background
-    threading.Thread(target=open_browser, daemon=True).start()
+    threading.Thread(target=start_server, daemon=True).start()
+    time.sleep(1.5)
 
-    # Start server (blocking)
-    uvicorn.run("server:app", host="127.0.0.1", port=8765, reload=False)
+    try:
+        import webview
+        webview.create_window("Music DL", url, width=1200, height=800,
+                              min_size=(800, 500), resizable=True,
+                              confirm_close=True, text_select=True)
+        webview.start()
+    except Exception:
+        import webbrowser
+        webbrowser.open(url)
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            pass
 
 
 if __name__ == "__main__":
