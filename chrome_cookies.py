@@ -12,7 +12,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
 
-def _get_encryption_key() -> bytes | None:
+def _get_encryption_key() -> Optional[bytes]:
     """Get Chrome's cookie encryption key from macOS Keychain."""
     try:
         result = subprocess.run(

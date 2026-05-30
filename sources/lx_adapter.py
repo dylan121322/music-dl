@@ -26,8 +26,8 @@ class LxMusicSource(MusicSource):
         self.source_path = source_path
         self._raw = ""
         self._name = Path(source_path).stem
-        self._platforms: dict[str, dict] = {}  # key -> {name, type, qualitys, actions}
-        self._url_templates: dict[str, dict] = {}  # platform -> {search, musicUrl, lyric, pic}
+        self._platforms: Dict[str, dict] = {}  # key -> {name, type, qualitys, actions}
+        self._url_templates: Dict[str, dict] = {}  # platform -> {search, musicUrl, lyric, pic}
         self._parse(source_path)
 
     @property

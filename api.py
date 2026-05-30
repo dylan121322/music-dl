@@ -5,7 +5,7 @@ import uuid
 import re
 import logging
 import requests
-from typing import Optional
+from typing import List, Optional
 from models import Song
 
 # Ensure /tmp/pylib is available for websocket-client
@@ -449,7 +449,7 @@ class MusicAPI:
         raise ValueError(f"Cannot extract playlist ID from: {url_or_id}")
 
 
-def _extract_singer(singers: list[dict]) -> str:
+def _extract_singer(singers: List[dict]) -> str:
     """Join singer names from the singer list."""
     return " / ".join(s.get("name", "") for s in singers)
 
