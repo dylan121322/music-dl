@@ -1,7 +1,6 @@
-"""Server runner for Android (Chaquopy). Lightweight, error-resilient."""
+"""Server runner for Android (Chaquopy)."""
 import sys
 import os
-import traceback
 from pathlib import Path
 
 SRC_DIR = str(Path(__file__).parent)
@@ -9,43 +8,50 @@ if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
 
+def log(msg: str):
+    """Write to Android logcat."""
+    try:
+        from android.util import Log
+        Log.i("Python", msg)
+    except Exception:
+        print(msg, flush=True)
+
+
 def run_server():
     try:
-        # Late imports to catch import errors
+        log("run_server() entered")
         import uvicorn
-        import server
+        log("uvicorn imported")
 
-        # Android paths
+        import server
+        log("server imported")
+
         android_data = Path("/data/data/com.musicdl/files")
         android_sdcard = Path("/sdcard/Music")
         android_sdcard.mkdir(parents=True, exist_ok=True)
+        log(f"sdcard: {android_sdcard}")
 
         server.STATIC_DIR = Path(SRC_DIR) / "static"
         server.CONFIG_PATH = android_data / "config.json"
+        log(f"static dir: {server.STATIC_DIR}")
 
-        # Override download_dir default for Android (patch the load_config default)
-        original_load = server.load_config
-        def android_load(path):
-            cfg = original_load(path)
-            if not cfg.get("download_dir") or "Music" in str(cfg.get("download_dir", "")):
-                cfg["download_dir"] = str(android_sdcard)
-            if not cfg.get("save_dir"):
-                cfg["save_dir"] = str(android_sdcard)
-            return cfg
-        server.load_config = android_load
-        # Also patch utils module
-        import utils
-        original_utils_load = utils.load_config
-        def android_utils_load(path):
-            cfg = original_utils_load(path)
-            if not cfg.get("download_dir") or "Music" in str(cfg.get("download_dir", "")):
-                cfg["download_dir"] = str(android_sdcard)
-            return cfg
-        utils.load_config = android_utils_load
+        # Patch config for Android paths
+        try:
+            import utils
+            _orig_load = utils.load_config
 
-        print(f"[server] Data dir: {android_data}", flush=True)
-        print(f"[server] Download dir: {android_sdcard}", flush=True)
-        print("[server] Starting on 127.0.0.1:8765", flush=True)
+            def _android_load(path):
+                cfg = _orig_load(path)
+                if "Music" in str(cfg.get("download_dir", "")) or "QQ" in str(cfg.get("download_dir", "")):
+                    cfg["download_dir"] = str(android_sdcard)
+                return cfg
+
+            utils.load_config = _android_load
+            log("utils patched")
+        except Exception as e:
+            log(f"utils patch failed: {e}")
+
+        log("Starting uvicorn on 127.0.0.1:8765")
         uvicorn.run(
             "server:app",
             host="127.0.0.1",
@@ -53,8 +59,10 @@ def run_server():
             reload=False,
             log_level="info",
             access_log=False,
+            lifespan="on",
         )
     except Exception as e:
-        traceback.print_exc()
-        print(f"[server] FATAL: {e}", flush=True)
+        import traceback
+        log(f"FATAL: {e}")
+        log(traceback.format_exc())
         raise
