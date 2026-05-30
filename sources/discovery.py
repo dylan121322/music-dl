@@ -1,3 +1,4 @@
+from typing import List
 """Auto-discovery engine — crawl web pages to extract music data and test sources."""
 import re
 import json
@@ -45,7 +46,7 @@ BUILTIN_TEMPLATES = {
 }
 
 
-def load_templates() -> list[dict]:
+def load_templates() -> List[dict]:
     """Load all available templates (builtin + config dir)."""
     templates = list(BUILTIN_TEMPLATES.values())
 
@@ -59,7 +60,7 @@ def load_templates() -> list[dict]:
     return templates
 
 
-def discover_sources() -> list[TemplateSource]:
+def discover_sources() -> List[TemplateSource]:
     """Load all template sources and test availability. Returns working ones."""
     sources = []
     for cfg in load_templates():
@@ -69,7 +70,7 @@ def discover_sources() -> list[TemplateSource]:
     return sources
 
 
-def crawl_page_for_music(url: str) -> list[dict]:
+def crawl_page_for_music(url: str) -> List[dict]:
     """Crawl a web page and try to find music data.
 
     Scans for:
@@ -108,7 +109,7 @@ def crawl_page_for_music(url: str) -> list[dict]:
     return results
 
 
-def auto_discover_and_register() -> list[dict]:
+def auto_discover_and_register() -> List[dict]:
     """Try to discover new sources and return configs for working ones."""
     new_configs = []
 
@@ -151,7 +152,7 @@ def auto_discover_and_register() -> list[dict]:
     return new_configs
 
 
-def _extract_songs_from_json(data, depth=0) -> list[dict]:
+def _extract_songs_from_json(data, depth=0) -> List[dict]:
     """Recursively search a JSON response for song-like data."""
     if depth > 5:
         return []

@@ -1,3 +1,4 @@
+from typing import List
 """KuGou (酷狗音乐) download source."""
 from typing import Optional
 import requests
@@ -16,7 +17,7 @@ def _similarity(a: str, b: str) -> float:
 class KugouSource(MusicSource):
     name = "kugou"
 
-    def search(self, title: str, artist: str = "") -> list[SearchResult]:
+    def search(self, title: str, artist: str = "") -> List[SearchResult]:
         """Search KuGou. Download URL may not be directly available."""
         try:
             resp = requests.get(SEARCH_API, params={

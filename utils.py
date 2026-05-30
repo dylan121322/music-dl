@@ -1,3 +1,4 @@
+from typing import List
 """Utility functions for QQ Music Downloader."""
 import time
 import functools
@@ -40,7 +41,7 @@ def save_account(config_path: Path, platform: str, cookie: str) -> None:
     save_config(config_path, config)
 
 
-def get_platform_status(config: dict) -> list[dict]:
+def get_platform_status(config: dict) -> List[dict]:
     """Get login status for all platforms."""
     status = []
     for key, info in PLATFORMS.items():
@@ -159,7 +160,7 @@ def save_config(config_path: Path, config: dict) -> None:
         json.dump(config, f, indent=2, ensure_ascii=False)
 
 
-def parse_numbers(user_input: str, max_val: int) -> list[int]:
+def parse_numbers(user_input: str, max_val: int) -> List[int]:
     """Parse user selection input like '1,3,5' or 'a'/'all' into 0-indexed list."""
     raw = user_input.strip().lower()
     if raw in ("a", "all"):

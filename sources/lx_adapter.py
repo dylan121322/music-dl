@@ -108,7 +108,7 @@ class LxMusicSource(MusicSource):
         # Generic fallback - assign to first platform
         pass
 
-    def search(self, title: str, artist: str = "") -> list[SearchResult]:
+    def search(self, title: str, artist: str = "") -> List[SearchResult]:
         """Search via extracted URL patterns."""
         results = []
         query = f"{title} {artist}".strip()
@@ -145,7 +145,7 @@ class LxMusicSource(MusicSource):
             urls.append(url)
         return urls[:2]
 
-    def _extract_songs(self, data: dict, platform: str) -> list[dict]:
+    def _extract_songs(self, data: dict, platform: str) -> List[dict]:
         """Extract song list from API response JSON."""
         songs = []
         # Common JSON response patterns

@@ -63,7 +63,7 @@ class MusicAPI:
         resp.raise_for_status()
         return resp.json()
 
-    def search(self, keyword: str, page: int = 1, limit: int = 20) -> list[Song]:
+    def search(self, keyword: str, page: int = 1, limit: int = 20) -> List[Song]:
         """Search songs by keyword. Returns list of Song objects."""
         # Try primary search endpoint
         songs = self._search_v1(keyword, page, limit)
@@ -73,7 +73,7 @@ class MusicAPI:
         logger.info("Primary search failed, trying fallback endpoint...")
         return self._search_v2(keyword, page, limit)
 
-    def _search_v1(self, keyword: str, page: int, limit: int) -> list[Song]:
+    def _search_v1(self, keyword: str, page: int, limit: int) -> List[Song]:
         """Primary: client_search_cp endpoint."""
         params = {
             "w": keyword,
@@ -102,7 +102,7 @@ class MusicAPI:
             songs.append(song)
         return songs
 
-    def _search_v2(self, keyword: str, page: int, limit: int) -> list[Song]:
+    def _search_v2(self, keyword: str, page: int, limit: int) -> List[Song]:
         """Fallback: music.search.SearchCgiService via musicu.fcg."""
         try:
             time.sleep(0.8)
@@ -223,7 +223,7 @@ class MusicAPI:
             logger.debug("Vkey request failed for %s: %s", song_mid, e)
         return None
 
-    def get_fav_songs(self, page: int = 0, size: int = 50) -> list[Song]:
+    def get_fav_songs(self, page: int = 0, size: int = 50) -> List[Song]:
         """Get user's favorite (hearted) songs. Requires login cookie."""
         req_data = {
             "req_0": {
@@ -261,7 +261,7 @@ class MusicAPI:
         except Exception:
             return []
 
-    def get_playlist_songs(self, playlist_id: str) -> list[Song]:
+    def get_playlist_songs(self, playlist_id: str) -> List[Song]:
         """Fetch all songs from a QQ Music playlist by its ID."""
         # Method 1: CDP HTML extraction (most reliable)
         songs = MusicAPI.extract_playlist_from_html(playlist_id)
@@ -327,7 +327,7 @@ class MusicAPI:
         return songs
 
     @staticmethod
-    def extract_playlist_from_html(playlist_id: str) -> list[Song]:
+    def extract_playlist_from_html(playlist_id: str) -> List[Song]:
         """Extract song list from playlist page HTML via CDP Chrome."""
         import json as j
         import re

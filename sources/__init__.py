@@ -46,7 +46,7 @@ def load_lx_sources() -> list:
     return _lx_sources
 
 
-def get_all_sources() -> list[MusicSource]:
+def get_all_sources() -> List[MusicSource]:
     """Get all available sources."""
     sources: List[MusicSource] = list(RELIABLE_SOURCES)
     sources.extend(discover_sources())
@@ -65,7 +65,7 @@ def run_ai_discovery(
     api_key: str = "",
     ai_api: str = "",
     progress_callback=None,
-) -> list[dict]:
+) -> List[dict]:
     """Run full AI-powered discovery pipeline.
 
     Args:
@@ -96,7 +96,7 @@ def run_ai_discovery(
     return discovered_info
 
 
-def get_all_sources() -> list[MusicSource]:
+def get_all_sources() -> List[MusicSource]:
     """Get all available sources."""
     sources: List[MusicSource] = list(RELIABLE_SOURCES)
     sources.extend(discover_sources())  # template-based
@@ -116,7 +116,7 @@ def test_all_sources() -> Dict[str, dict]:
     return results
 
 
-def find_alternative(title: str, artist: str, prefer_source: str = "auto") -> list[SearchResult]:
+def find_alternative(title: str, artist: str, prefer_source: str = "auto") -> List[SearchResult]:
     """Search all sources (or a specific source) for a song."""
     all_results = []
     for source in get_all_sources():

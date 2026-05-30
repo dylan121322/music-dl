@@ -1,3 +1,4 @@
+from typing import List
 """Interactive song search with Rich terminal UI."""
 from rich.console import Console
 from rich.table import Table
@@ -8,7 +9,7 @@ from models import Song
 console = Console()
 
 
-def search_interactive(api: MusicAPI, keyword: str, page: int = 1, limit: int = 10) -> list[Song]:
+def search_interactive(api: MusicAPI, keyword: str, page: int = 1, limit: int = 10) -> List[Song]:
     """Search songs and let user pick which ones to download. Returns selected songs."""
     with console.status(f"[bold cyan]Searching '{keyword}'...[/bold cyan]"):
         try:
@@ -25,7 +26,7 @@ def search_interactive(api: MusicAPI, keyword: str, page: int = 1, limit: int = 
     return _select_songs(songs)
 
 
-def _render_results(songs: list[Song], keyword: str, page: int) -> None:
+def _render_results(songs: List[Song], keyword: str, page: int) -> None:
     """Render search results as a Rich table."""
     table = Table(title=f'Search: "{keyword}" (page {page})', border_style="cyan")
     table.add_column("#", style="dim cyan", width=4, justify="right")
@@ -48,7 +49,7 @@ def _render_results(songs: list[Song], keyword: str, page: int) -> None:
     console.print(f"\n[dim]Showing {len(songs)} results. Enter numbers to select, 'a' for all.[/dim]")
 
 
-def _select_songs(songs: list[Song]) -> list[Song]:
+def _select_songs(songs: List[Song]) -> List[Song]:
     """Prompt user for selection and return chosen Song objects."""
     from utils import parse_numbers
 

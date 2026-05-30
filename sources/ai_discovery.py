@@ -39,7 +39,7 @@ SEARCH_QUERIES = [
     "public music download api json",
 ]
 
-def search_bing(query: str, max_results: int = 15) -> list[dict]:
+def search_bing(query: str, max_results: int = 15) -> List[dict]:
     """Search Bing and extract real URLs (handle redirect wrapper)."""
     results = []
     try:
@@ -82,7 +82,7 @@ def search_bing(query: str, max_results: int = 15) -> list[dict]:
     return results
 
 
-def search_direct_apis() -> list[dict]:
+def search_direct_apis() -> List[dict]:
     """Directly probe known free music API endpoints (no web search needed)."""
     known_apis = [
         # Format: (url, method, body)
@@ -186,7 +186,7 @@ def visit_page(url: str, timeout: int = 10) -> Optional[PageContent]:
 # 3. AI + Rule-Based Page Analysis
 # ============================================================
 
-def analyze_json_api(data: dict, url: str) -> list[dict]:
+def analyze_json_api(data: dict, url: str) -> List[dict]:
     """Analyze a JSON API response and generate source templates."""
     songs = _find_songs_recursive(data)
     if not songs:
@@ -218,7 +218,7 @@ def analyze_json_api(data: dict, url: str) -> list[dict]:
     return configs
 
 
-def analyze_html_page(html: str, url: str) -> list[dict]:
+def analyze_html_page(html: str, url: str) -> List[dict]:
     """Analyze an HTML page for music data patterns."""
     configs = []
 
@@ -276,7 +276,7 @@ def analyze_html_page(html: str, url: str) -> list[dict]:
 def analyze_with_ai(
     page: PageContent, ai_api: str = "", ai_key: str = "",
     base_url: str = "", ai_model: str = "",
-) -> list[dict]:
+) -> List[dict]:
     """Run AI analysis on a page (Claude or OpenAI)."""
     if ai_api == "claude" and ai_key:
         return _analyze_claude(page, ai_key, base_url or "https://api.anthropic.com")
@@ -285,7 +285,7 @@ def analyze_with_ai(
     return []
 
 
-def _analyze_claude(page: PageContent, api_key: str, base_url: str = "https://api.anthropic.com") -> list[dict]:
+def _analyze_claude(page: PageContent, api_key: str, base_url: str = "https://api.anthropic.com") -> List[dict]:
     """Use Claude to analyze a page."""
     content = page.html[:10000]
     if page.json_data:
@@ -336,7 +336,7 @@ Content to analyze:
 
 def _analyze_openai(page: PageContent, api_key: str,
                     base_url: str = "https://api.openai.com",
-                    model: str = "gpt-4o-mini") -> list[dict]:
+                    model: str = "gpt-4o-mini") -> List[dict]:
     """Use OpenAI to analyze a page."""
     content = page.html[:10000]
     try:
@@ -392,7 +392,7 @@ def discover_pipeline(
     base_url: str = "",
     ai_model: str = "",
     max_pages: int = 20,
-) -> list[dict]:
+) -> List[dict]:
     """Full discovery pipeline: search -> visit -> analyze -> adapt -> register.
 
     Args:
@@ -479,7 +479,7 @@ def discover_pipeline(
 def analyze_page(
     page: PageContent, ai_api: str = "", ai_key: str = "",
     base_url: str = "", ai_model: str = "",
-) -> list[dict]:
+) -> List[dict]:
     """Analyze a page with all available methods."""
     configs = []
 

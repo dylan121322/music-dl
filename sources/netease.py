@@ -1,3 +1,4 @@
+from typing import List
 """NetEase Cloud Music (网易云音乐) download source with login support."""
 from typing import Optional
 import requests
@@ -48,7 +49,7 @@ class NeteaseSource(MusicSource):
     def logged_in(self) -> bool:
         return bool(self.uid)
 
-    def search(self, title: str, artist: str = "") -> list[SearchResult]:
+    def search(self, title: str, artist: str = "") -> List[SearchResult]:
         query = f"{title} {artist}".strip()
         try:
             resp = self.session.post(

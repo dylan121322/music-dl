@@ -1,3 +1,4 @@
+from typing import List
 """Base classes for music sources."""
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
@@ -22,7 +23,7 @@ class MusicSource(ABC):
     name: str = "base"
 
     @abstractmethod
-    def search(self, title: str, artist: str = "") -> list[SearchResult]:
+    def search(self, title: str, artist: str = "") -> List[SearchResult]:
         """Search for a song. Returns list of SearchResult, best match first."""
         ...
 

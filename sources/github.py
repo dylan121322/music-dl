@@ -1,3 +1,4 @@
+from typing import List
 """GitHub code search source — find mp3 files in public repositories."""
 from typing import Optional
 import requests
@@ -9,7 +10,7 @@ API = "https://api.github.com"
 class GithubSource(MusicSource):
     name = "github"
 
-    def search(self, title: str, artist: str = "") -> list[SearchResult]:
+    def search(self, title: str, artist: str = "") -> List[SearchResult]:
         """Search GitHub for mp3 files matching the query."""
         query = f"{title} {artist}".strip()
         # Search for mp3 files with the song name
@@ -26,7 +27,7 @@ class GithubSource(MusicSource):
                 break
         return all_results[:10]
 
-    def _search_code(self, query: str) -> list[SearchResult]:
+    def _search_code(self, query: str) -> List[SearchResult]:
         """Search GitHub code for audio files. Rate limit: 10 req/min unauthenticated."""
         try:
             resp = requests.get(

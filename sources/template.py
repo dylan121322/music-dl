@@ -1,3 +1,4 @@
+from typing import List
 """Template-based music source — configurable via JSON schema."""
 from typing import Optional
 import json
@@ -37,7 +38,7 @@ class TemplateSource(MusicSource):
         self.name = config.get("name", "template")
         self._cfg = config
 
-    def search(self, title: str, artist: str = "") -> list[SearchResult]:
+    def search(self, title: str, artist: str = "") -> List[SearchResult]:
         cfg = self._cfg
         query = f"{title} {artist}".strip()
         url = cfg["search_url"].format(query=requests.utils.quote(query), limit="5")

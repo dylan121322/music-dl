@@ -112,7 +112,7 @@ class Downloader:
                 filepath.unlink()
             return False
 
-    def batch_download(self, songs: list[Song]) -> dict:
+    def batch_download(self, songs: List[Song]) -> dict:
         """Download multiple songs in parallel. Returns {succeeded, failed, skipped}."""
         results = {"succeeded": 0, "failed": 0, "skipped": 0}
         # If authenticated, try gray songs too (cookie may unlock them)

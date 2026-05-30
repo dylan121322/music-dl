@@ -1,3 +1,4 @@
+from typing import List
 """FastAPI server for Music DL — REST API + static frontend."""
 import sys
 import json
@@ -53,7 +54,7 @@ class SearchRequest(BaseModel):
 
 
 class DownloadRequest(BaseModel):
-    songs: list[dict]  # [{mid, title, singer, album, duration, is_gray}]
+    songs: List[dict]  # [{mid, title, singer, album, duration, is_gray}]
     quality: str = "320kbps"
     save_dir: str = ""
     workers: int = 3
