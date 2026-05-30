@@ -410,6 +410,36 @@ function updateProgress(){
 function onPlayEnd(){document.getElementById('playPauseBtn').textContent='▶'}
 function onPlayError(){document.getElementById('playPauseBtn').textContent='▶';toast('播放失败','err')}
 
+// ── Android Bridge (delayed check, wait for WebView to init) ──
+setTimeout(() => {
+  if (typeof window.Android !== 'undefined') {
+    const urls = { qq: 'https://y.qq.com', netease: 'https://music.163.com', kugou: 'https://www.kugou.com' };
+    const domains = { qq: 'y.qq.com', netease: 'music.163.com', kugou: 'kugou.com' };
+    window._androidLogin = true;
+
+    window._openChrome = openChrome;
+    openChrome = function() {
+      const url = urls[currentPlatform] || urls.qq;
+      window.Android.loginPlatform(currentPlatform, url);
+    };
+
+    window._extractCookies = extractCookies;
+    extractCookies = async function() {
+      const domain = domains[currentPlatform];
+      const cookie = window.Android.getCookies(domain);
+      if (cookie) {
+        document.getElementById('cookieInput').value = cookie;
+        await manualLogin();
+        window.Android.toast('Cookie 已提取: ' + currentPlatform);
+        window.Android.goHome();
+        closeSheet('loginSheet');
+      } else {
+        toast('未找到 Cookie，请先在打开的平台页面中登录', 'err');
+      }
+    };
+  }
+}, 1500);
+
 // ── Login ──
 let loginAbort=null;
 async function openChrome(){
