@@ -46,12 +46,25 @@
 
 ## 安装
 
+### 桌面端 (macOS / Windows / Linux)
+
 ```bash
 cd music-dl
 pip install -r requirements.txt
 # Chrome CDP Cookie 提取需要：
 pip install websocket-client cryptography
 ```
+
+### Android (Termux)
+
+```bash
+curl -O https://raw.githubusercontent.com/dylan121322/music-dl/main/termux_setup.sh
+bash termux_setup.sh
+```
+
+然后在 Android 浏览器打开 `http://127.0.0.1:8765`。
+
+> 需要先安装 [Termux](https://f-droid.org/packages/com.termux/)（F-Droid 版，Google Play 版已停更）。
 
 ## 快速开始
 
