@@ -433,14 +433,18 @@ def api_login_restore(platform: str = "qq"):
 @app.get("/api/download/progress/{task_id}")
 async def api_download_progress(task_id: str):
     """SSE endpoint for download progress."""
-    q = _state["progress_queues"].get(task_id) or asyncio.Queue()
+    import queue as _qmod
+    q = _state["progress_queues"].get(task_id) or _qmod.Queue()
     _state["progress_queues"][task_id] = q
 
     async def event_stream():
         try:
             while True:
                 try:
-                    msg = await asyncio.wait_for(q.get(), timeout=30)
+                    if isinstance(q, _qmod.Queue):
+                        msg = await asyncio.get_event_loop().run_in_executor(None, q.get)
+                    else:
+                        msg = await asyncio.wait_for(q.get(), timeout=30)
                     yield f"data: {json.dumps(msg)}\n\n"
                     if msg.get("type") == "done":
                         break
@@ -467,8 +471,9 @@ def api_download(body: DownloadRequest):
     songs = [_dict_to_song(s) for s in body.songs]
     prefer_source = body.prefer_source
 
-    # Create queue before starting thread to avoid race
-    _state["progress_queues"][task_id] = asyncio.Queue()
+    # Use a regular Queue to avoid asyncio event loop issues on some platforms
+    import queue as _qmod
+    _state["progress_queues"][task_id] = _qmod.Queue()
 
     def _run():
         q = _state["progress_queues"].get(task_id)
