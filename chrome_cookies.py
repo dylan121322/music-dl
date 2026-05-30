@@ -1,4 +1,5 @@
 """Extract and decrypt Chrome cookies on macOS using Keychain."""
+from typing import Optional
 import sqlite3
 import os
 import shutil
@@ -57,7 +58,7 @@ def _decrypt_value(encrypted: bytes, key: bytes) -> str:
         return ""
 
 
-def get_chrome_cookies(domain: str = "qq.com") -> str | None:
+def get_chrome_cookies(domain: str = "qq.com") -> Optional[str]:
     """Extract and decrypt all Chrome cookies for a domain (searches all profiles)."""
     key = _get_encryption_key()
     if not key:

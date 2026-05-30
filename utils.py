@@ -56,7 +56,7 @@ def get_platform_status(config: dict) -> list[dict]:
     return status
 
 
-def _parse_generic_cookie(cookie_str: str) -> dict | None:
+def _parse_generic_cookie(cookie_str: str) -> Optional[dict]:
     """Parse a generic cookie string, extract any user identifier."""
     if not cookie_str:
         return None

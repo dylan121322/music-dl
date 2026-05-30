@@ -5,6 +5,7 @@ import asyncio
 import threading
 import queue
 from pathlib import Path
+from typing import Optional
 
 # Ensure project root is on sys.path for imports
 sys.path.insert(0, str(Path(__file__).parent))
@@ -74,9 +75,9 @@ class CookieRequest(BaseModel):
 
 
 class ConfigUpdateRequest(BaseModel):
-    quality: str | None = None
-    download_dir: str | None = None
-    workers: int | None = None
+    quality: Optional[str] = None
+    download_dir: Optional[str] = None
+    workers: Optional[int] = None
 
 
 class AiConfigRequest(BaseModel):

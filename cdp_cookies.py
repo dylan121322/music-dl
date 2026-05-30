@@ -1,11 +1,12 @@
 """Extract ALL cookies from Chrome via CDP WebSocket (including HttpOnly)."""
+from typing import Optional
 import json
 import requests
 
 CDP_PORT = 9233
 
 
-def get_cookies_via_ws(port: int = CDP_PORT) -> str | None:
+def get_cookies_via_ws(port: int = CDP_PORT) -> Optional[str]:
     """Connect to Chrome CDP and get ALL cookies including HttpOnly."""
     try:
         from websocket import create_connection

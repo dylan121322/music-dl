@@ -1,6 +1,7 @@
 """Multi-threaded download engine with Rich progress bars."""
 import re
 from pathlib import Path
+from typing import Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import quote
 import requests
@@ -202,7 +203,7 @@ class Downloader:
             raise
 
 
-def _search_web_for_song(title: str, artist: str) -> str | None:
+def _search_web_for_song(title: str, artist: str) -> Optional[str]:
     """Multi-engine web search with AI-assisted candidate ranking."""
 
     # Phase 1: directly search known mp3 download sites
@@ -338,7 +339,7 @@ URLs:
         return urls
 
 
-def _probe_page_for_mp3(title: str, artist: str, page_url: str, use_ai: bool) -> str | None:
+def _probe_page_for_mp3(title: str, artist: str, page_url: str, use_ai: bool) -> Optional[str]:
     """Visit a page and use AI to probe for mp3 download links, acting like a browser inspector."""
     import re as _re
     import json as _json
@@ -494,7 +495,7 @@ Rules:
     return None
 
 
-def _resolve_download_url(url: str) -> str | None:
+def _resolve_download_url(url: str) -> Optional[str]:
     """Follow a redirect URL to find the actual downloadable mp3 link."""
     try:
         resp = requests.get(url, headers={
@@ -513,7 +514,7 @@ def _resolve_download_url(url: str) -> str | None:
         return None
 
 
-def _load_ai_config() -> dict | None:
+def _load_ai_config() -> Optional[dict]:
     """Load AI config from user config file."""
     import json as _json
     from pathlib import Path as _Path

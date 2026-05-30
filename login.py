@@ -1,4 +1,5 @@
 """QQ Music QR code login — scan with QQ Music app to get VIP cookie."""
+from typing import Optional
 import time
 import re
 import random
@@ -44,7 +45,7 @@ def _hash33(s: str) -> int:
     return h & 0x7FFFFFFF
 
 
-def qr_login() -> str | None:
+def qr_login() -> Optional[str]:
     """Perform QR code login flow. Returns the full cookie string on success, or None."""
     session = requests.Session()
     session.headers.update({"User-Agent": USER_AGENT})
