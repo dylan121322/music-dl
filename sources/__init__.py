@@ -1,5 +1,5 @@
 """Multi-source music download with auto-discovery + AI engine."""
-from typing import Optional
+from typing import Optional, List, Dict
 from pathlib import Path as _Path
 from sources.base import MusicSource, SearchResult
 from sources.netease import NeteaseSource
@@ -13,14 +13,14 @@ _netease_instance = NeteaseSource()
 _kugou_instance = KugouSource()
 _github_instance = GithubSource()
 
-RELIABLE_SOURCES: list[MusicSource] = [
+RELIABLE_SOURCES: List[MusicSource] = [
     _netease_instance,
     _kugou_instance,
     _github_instance,
 ]
 
 # AI-discovered sources
-_ai_sources: list[TemplateSource] = []
+_ai_sources: List[TemplateSource] = []
 
 # LX Music JS sources (loaded from ~/.config/music-dl/lx_sources/)
 _lx_sources: list = []
@@ -48,7 +48,7 @@ def load_lx_sources() -> list:
 
 def get_all_sources() -> list[MusicSource]:
     """Get all available sources."""
-    sources: list[MusicSource] = list(RELIABLE_SOURCES)
+    sources: List[MusicSource] = list(RELIABLE_SOURCES)
     sources.extend(discover_sources())
     sources.extend(_ai_sources)
     sources.extend(_lx_sources)
@@ -98,13 +98,13 @@ def run_ai_discovery(
 
 def get_all_sources() -> list[MusicSource]:
     """Get all available sources."""
-    sources: list[MusicSource] = list(RELIABLE_SOURCES)
+    sources: List[MusicSource] = list(RELIABLE_SOURCES)
     sources.extend(discover_sources())  # template-based
     sources.extend(_ai_sources)         # AI-discovered
     return sources
 
 
-def test_all_sources() -> dict[str, dict]:
+def test_all_sources() -> Dict[str, dict]:
     """Test all sources and return detailed status."""
     results = {}
     for src in get_all_sources():

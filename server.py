@@ -5,7 +5,7 @@ import asyncio
 import threading
 import queue
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict
 
 # Ensure project root is on sys.path for imports
 sys.path.insert(0, str(Path(__file__).parent))
@@ -189,7 +189,7 @@ def api_search(body: SearchRequest):
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     # keyed by title|singer, merges same song across platforms
-    merged: dict[str, dict] = {}
+    merged: Dict[str, dict] = {}
 
     def add_qq():
         api = get_api()

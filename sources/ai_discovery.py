@@ -1,3 +1,4 @@
+from typing import List
 """AI-powered adaptive crawler — search web, visit pages, analyze, auto-adapt.
 
 Pipeline:
@@ -521,7 +522,7 @@ def _find_songs_recursive(data, depth: int = 0) -> list:
     return []
 
 
-def _detect_field(obj: dict, candidates: list[str]) -> str:
+def _detect_field(obj: dict, candidates: List[str]) -> str:
     for c in candidates:
         if c in obj:
             return c

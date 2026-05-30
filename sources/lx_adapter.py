@@ -11,7 +11,7 @@ import re
 import json
 import requests
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 from sources.base import MusicSource, SearchResult
 
 
@@ -135,7 +135,7 @@ class LxMusicSource(MusicSource):
                     continue
         return results
 
-    def _find_search_urls(self, platform: str, query: str) -> list[str]:
+    def _find_search_urls(self, platform: str, query: str) -> List[str]:
         """Find search API URLs in the source for a given platform."""
         urls = []
         # Common search URL patterns in LX sources
@@ -198,5 +198,5 @@ class LxMusicSource(MusicSource):
                     pass
         return None
 
-    def get_platforms(self) -> list[str]:
+    def get_platforms(self) -> List[str]:
         return list(self._platforms.keys())

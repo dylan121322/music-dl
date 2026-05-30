@@ -1,7 +1,7 @@
 """Multi-threaded download engine with Rich progress bars."""
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import quote
 import requests
@@ -226,7 +226,7 @@ def _search_web_for_song(title: str, artist: str) -> Optional[str]:
         _search_bing,
         _search_duckduckgo,
     ]
-    all_urls: list[str] = []
+    all_urls: List[str] = []
     with ThreadPoolExecutor(max_workers=len(engines)) as pool:
         futures = [pool.submit(eng, query) for eng in engines]
         for f in as_completed(futures):
@@ -258,7 +258,7 @@ BLOCKED_DOMAINS = ["y.qq.com", "c.y.qq.com", "u.y.qq.com",
                    "google.com", "baidu.com"]
 
 
-def _search_bing(query: str) -> list[str]:
+def _search_bing(query: str) -> List[str]:
     """Search Bing for mp3 download pages."""
     urls = []
     try:
@@ -279,7 +279,7 @@ def _search_bing(query: str) -> list[str]:
     return urls[:10]
 
 
-def _search_duckduckgo(query: str) -> list[str]:
+def _search_duckduckgo(query: str) -> List[str]:
     """Search DuckDuckGo (HTML version) for mp3 download pages."""
     urls = []
     try:
@@ -301,7 +301,7 @@ def _search_duckduckgo(query: str) -> list[str]:
     return urls[:10]
 
 
-def _ai_rank_urls(title: str, artist: str, urls: list[str]) -> list[str]:
+def _ai_rank_urls(title: str, artist: str, urls: List[str]) -> List[str]:
     """Use AI to rank candidate URLs by likelihood of containing mp3 downloads."""
     ai_config = _load_ai_config()
     if not ai_config or len(urls) <= 3:
@@ -358,7 +358,7 @@ def _probe_page_for_mp3(title: str, artist: str, page_url: str, use_ai: bool) ->
     html = pr.text
 
     # Step 1: extract ALL audio-related elements and URLs (like a browser inspector)
-    findings: list[str] = []
+    findings: List[str] = []
 
     # <audio> / <source> tags
     for m in _re.finditer(r'<audio[^>]*>.*?</audio>', html, _re.DOTALL | _re.I):
