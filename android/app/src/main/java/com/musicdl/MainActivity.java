@@ -370,13 +370,22 @@ public class MainActivity extends AppCompatActivity {
         try {
             if (mediaPlayer != null) { mediaPlayer.release(); }
             mediaPlayer = new MediaPlayer();
+            mediaPlayer.setAudioStreamType(android.media.AudioManager.STREAM_MUSIC);
             mediaPlayer.setDataSource(url);
+            mediaPlayer.setVolume(1.0f, 1.0f);
             mediaPlayer.setOnPreparedListener(mp -> {
                 mp.start();
                 playPauseBtn.setText("⏸");
+                toast("正在播放");
             });
             mediaPlayer.setOnCompletionListener(mp -> playPauseBtn.setText("▶"));
             mediaPlayer.setOnErrorListener((mp, w, e) -> { toast("播放错误: " + e); return true; });
+            mediaPlayer.setOnInfoListener((mp, what, extra) -> {
+                if (what == MediaPlayer.MEDIA_INFO_BUFFERING_START) toast("缓冲中...");
+                if (what == MediaPlayer.MEDIA_INFO_BUFFERING_END) toast("缓冲完成");
+                if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) toast("开始渲染");
+                return false;
+            });
             mediaPlayer.prepareAsync();
         } catch (Exception ex) {
             toast("播放失败: " + ex.getMessage());
