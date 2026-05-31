@@ -49,7 +49,13 @@ public class MainActivity extends AppCompatActivity {
     private TextView playerTitle, playerArtist, statusText;
     private Button playPauseBtn;
     private MediaPlayer mediaPlayer;
+    private Button retryBtn;
+    private String currentMid, currentTitle, currentSinger;
     private String currentPlayUrl;
+    private long cacheStartMs;
+    private FrameLayout loginOverlay;
+    private WebView loginWebView;
+    private ViewGroup loginWebContainer;
     private JSONArray currentSongs = new JSONArray();
     private Set<Integer> selected = new HashSet<>();
     private String quality = "320kbps";
@@ -196,6 +202,16 @@ public class MainActivity extends AppCompatActivity {
         playerArtist.setTextSize(12);
         info.addView(playerArtist);
         miniPlayer.addView(info);
+
+        retryBtn = new Button(this);
+        retryBtn.setText("重试");
+        retryBtn.setTextColor(0xFFFFFFFF);
+        retryBtn.setBackground(roundedBg(0xFFef4444, 24));
+        retryBtn.setPadding(16, 10, 16, 10);
+        retryBtn.setTextSize(12);
+        retryBtn.setVisibility(View.GONE);
+        retryBtn.setOnClickListener(v -> playSong(currentMid, currentTitle, currentSinger));
+        miniPlayer.addView(retryBtn);
 
         Button stopBtn = new Button(this);
         stopBtn.setText("✕");
@@ -347,33 +363,56 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void playSong(String mid, String title, String singer) {
+        currentMid = mid;
+        currentTitle = title;
+        currentSinger = singer;
+        retryBtn.setVisibility(View.GONE);
+
         playerTitle.setText(title);
         playerArtist.setText(singer);
         miniPlayer.setVisibility(View.VISIBLE);
         playPauseBtn.setText("⏳");
+
         apiPost("/api/play", "{\"mid\":\"" + escape(mid) + "\",\"quality\":\"" + quality + "\"}", new Callback() {
             public void onResult(JSONObject r) {
                 String url = r.optString("url", "");
-                if (url.isEmpty()) { mainHandler.post(() -> toast("无法获取播放链接")); return; }
-                if (!url.startsWith("http")) { mainHandler.post(() -> toast("无效链接:" + url.substring(0,30))); return; }
+                if (url.isEmpty()) { failAndRetry("无法获取播放链接"); return; }
+                if (!url.startsWith("http")) { failAndRetry("无效链接"); return; }
                 currentPlayUrl = url;
-                mainHandler.post(() -> toast("下载中..."));
-                // Download via cache, then play local file (MediaPlayer needs local file)
+
+                // Start progress estimation for cache download
+                cacheStartMs = System.currentTimeMillis();
+                mainHandler.post(cacheProgressRunnable);
+
                 apiGet("/api/cache?url=" + encode(url), new Callback() {
                     public void onResult(JSONObject cr) {
+                        mainHandler.removeCallbacks(cacheProgressRunnable);
                         String path = cr.optString("path", "");
-                        boolean cached = cr.optBoolean("cached", false);
                         long size = cr.optLong("size", 0);
                         if (!path.isEmpty()) {
-                            mainHandler.post(() -> { toast("缓存OK:" + (size/1024) + "KB"); playFile(path); });
+                            String sizeStr = size > 0 ? " (" + (size/1024) + "KB)" : "";
+                            mainHandler.post(() -> { toast("缓存完成" + sizeStr); playFile(path); });
                         } else {
-                            mainHandler.post(() -> toast("下载失败: path为空"));
+                            failAndRetry("下载失败: path为空");
                         }
                     }
-                    public void onError(String e) { mainHandler.post(() -> toast("缓存失败: " + e)); }
+                    public void onError(String e) {
+                        mainHandler.removeCallbacks(cacheProgressRunnable);
+                        failAndRetry("缓存失败: " + e);
+                    }
                 });
             }
-            public void onError(String e) { mainHandler.post(() -> toast("播放失败: " + (e != null ? e : "unknown"))); }
+            public void onError(String e) {
+                failAndRetry("获取链接失败: " + (e != null ? e : "unknown"));
+            }
+        });
+    }
+
+    private void failAndRetry(String msg) {
+        mainHandler.post(() -> {
+            toast(msg);
+            playPauseBtn.setText("▶");
+            retryBtn.setVisibility(View.VISIBLE);
         });
     }
 
@@ -407,7 +446,10 @@ public class MainActivity extends AppCompatActivity {
         if (path == null || path.isEmpty()) { toast("路径无效"); return; }
         try {
             java.io.File f = new java.io.File(path);
-            if (!f.exists()) { toast("文件不存在:" + path.substring(Math.max(0, path.length() - 30))); return; }
+            if (!f.exists()) {
+                mainHandler.post(() -> { toast("文件不存在"); retryBtn.setVisibility(View.VISIBLE); });
+                return;
+            }
             if (mediaPlayer != null) { mediaPlayer.release(); }
             mediaPlayer = new MediaPlayer();
             mediaPlayer.setAudioStreamType(android.media.AudioManager.STREAM_MUSIC);
@@ -417,10 +459,13 @@ public class MainActivity extends AppCompatActivity {
                 playPauseBtn.setText("⏸");
             });
             mediaPlayer.setOnCompletionListener(mp -> playPauseBtn.setText("▶"));
-            mediaPlayer.setOnErrorListener((mp, w, e) -> { toast("错误:" + w + "/" + e); return true; });
+            mediaPlayer.setOnErrorListener((mp, w, e) -> {
+                mainHandler.post(() -> { toast("播放错误:" + w + "/" + e); retryBtn.setVisibility(View.VISIBLE); });
+                return true;
+            });
             mediaPlayer.prepareAsync();
         } catch (Exception e) {
-            toast("播放失败: " + e.getMessage());
+            mainHandler.post(() -> { toast("播放失败: " + e.getMessage()); retryBtn.setVisibility(View.VISIBLE); });
         }
     }
 
@@ -435,6 +480,7 @@ public class MainActivity extends AppCompatActivity {
     private void stopPlay() {
         if (mediaPlayer != null) { try { mediaPlayer.stop(); mediaPlayer.release(); } catch (Exception e) {} mediaPlayer = null; }
         miniPlayer.setVisibility(View.GONE);
+        retryBtn.setVisibility(View.GONE);
     }
 
     private void showLoginDialog() {
@@ -444,6 +490,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Dark overlay that dismisses on tap
         FrameLayout overlay = new FrameLayout(this);
+        loginOverlay = overlay;
         overlay.setId(9999);
         overlay.setBackgroundColor(0x99000000);
         overlay.setOnClickListener(v -> ((ViewGroup) overlay.getParent()).removeView(overlay));
@@ -529,6 +576,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void showLoginWebView(FrameLayout overlay) {
         LinearLayout webContainer = new LinearLayout(this);
+        loginWebContainer = webContainer;
         webContainer.setOrientation(LinearLayout.VERTICAL);
         webContainer.setBackgroundColor(0xFF0a0a0f);
         FrameLayout.LayoutParams wp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
@@ -536,6 +584,7 @@ public class MainActivity extends AppCompatActivity {
         webContainer.setLayoutParams(wp);
 
         WebView wv = new WebView(this);
+        loginWebView = wv;
         wv.getSettings().setJavaScriptEnabled(true);
         wv.getSettings().setDomStorageEnabled(true);
         wv.getSettings().setUserAgentString("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36");
@@ -666,6 +715,49 @@ public class MainActivity extends AppCompatActivity {
         sheet.addView(closeBtn);
 
         mainLayout.addView(sheet, 0);
+    }
+
+    // ── Cache progress timer ──
+
+    private final Runnable cacheProgressRunnable = new Runnable() {
+        @Override
+        public void run() {
+            long elapsed = System.currentTimeMillis() - cacheStartMs;
+            int sec = (int)(elapsed / 1000);
+            int estimatedTotalSec;
+            if (quality.equals("flac")) estimatedTotalSec = 30;
+            else if (quality.equals("128kbps")) estimatedTotalSec = 5;
+            else estimatedTotalSec = 10;
+            int pct = Math.min(95, sec * 100 / Math.max(1, estimatedTotalSec));
+            toast("下载中 " + pct + "%...");
+            mainHandler.postDelayed(this, 3000);
+        }
+    };
+
+    // ── System back button handling ──
+
+    @Override
+    public void onBackPressed() {
+        // WebView showing and can go back in history
+        if (loginWebView != null && loginWebView.canGoBack()) {
+            loginWebView.goBack();
+            return;
+        }
+        // WebView showing but at root -> return to login sheet
+        if (loginWebContainer != null && loginWebContainer.getParent() != null) {
+            ((ViewGroup) loginWebContainer.getParent()).removeView(loginWebContainer);
+            loginWebContainer = null;
+            loginWebView = null;
+            toast("登录后点提取Cookie");
+            return;
+        }
+        // Login overlay showing -> dismiss it
+        if (loginOverlay != null && loginOverlay.getParent() != null) {
+            ((ViewGroup) loginOverlay.getParent()).removeView(loginOverlay);
+            loginOverlay = null;
+            return;
+        }
+        super.onBackPressed();
     }
 
     // ── Helpers ──
