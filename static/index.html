@@ -389,12 +389,17 @@ function playSong(mid,title,artist){
     .then(r=>{if(!r.ok)throw new Error();return r.json()})
     .then(d=>{
       if(!d.url)throw new Error();
-      player.src='/api/stream?url='+encodeURIComponent(d.url);
-      player.load();
-      player.play().then(()=>{document.getElementById('playPauseBtn').textContent='⏸';}).catch(()=>{});
+      // Download to cache, then play locally to avoid CDN Range issues
+      const cachePath = '/api/cache?url='+encodeURIComponent(d.url);
+      fetch(cachePath).then(cr=>cr.json()).then(cd=>{
+        if(!cd.path)throw new Error();
+        player.src = '/api/stream?path='+encodeURIComponent(cd.path);
+        player.load();
+        player.play().then(()=>{document.getElementById('playPauseBtn').textContent='⏸';}).catch(()=>{});
+      }).catch(()=>{toast('缓存失败','err');document.getElementById('playPauseBtn').textContent='▶';});
     }).catch(()=>{
       document.getElementById('playPauseBtn').textContent='▶';
-      toast('无法播放','err');
+      toast('无法获取播放链接','err');
     });
 }
 function togglePlayPause(){

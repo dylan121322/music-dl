@@ -301,6 +301,32 @@ def api_downloads():
     return {"files": files, "dir": str(dl_dir)}
 
 
+@app.get("/api/cache")
+def api_cache(url: str):
+    """Download external URL to local cache and return local path for playback."""
+    import requests as _req, hashlib, tempfile
+
+    cache_dir = Path(tempfile.gettempdir()) / "musicdl_cache"
+    cache_dir.mkdir(exist_ok=True)
+
+    cache_key = hashlib.md5(url.encode()).hexdigest()[:12]
+    cache_file = cache_dir / f"{cache_key}.mp3"
+    if cache_file.exists() and cache_file.stat().st_size > 1024:
+        return {"path": str(cache_file), "cached": True}
+
+    try:
+        resp = _req.get(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer": "https://y.qq.com",
+        }, timeout=30)
+        with open(cache_file, "wb") as f:
+            for chunk in resp.iter_content(65536):
+                f.write(chunk)
+        return {"path": str(cache_file), "cached": False, "size": cache_file.stat().st_size}
+    except Exception:
+        raise HTTPException(status_code=404, detail="Cannot cache URL")
+
+
 @app.get("/api/stream")
 def api_stream(path: str = "", url: str = ""):
     """Stream audio: local file (path param) or proxy external URL (url param)."""
