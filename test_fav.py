@@ -2,7 +2,7 @@
 import json, requests, sys
 from pathlib import Path
 
-sys.path.insert(0, '/Users/boqing/Desktop/code/music-dl')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from utils import load_config, cookie_to_auth
 
 CONFIG_PATH = Path.home() / '.config' / 'music-dl' / 'config.json'

@@ -55,7 +55,7 @@ def main():
         webview.start()
     except Exception:
         import webbrowser
-        webbrowser.open(url)
+        webbrowser.open(local_url)
         try:
             while True:
                 time.sleep(1)
