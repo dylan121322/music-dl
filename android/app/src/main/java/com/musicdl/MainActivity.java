@@ -99,8 +99,8 @@ public class MainActivity extends AppCompatActivity {
         title.setTextColor(0xFFFFFFFF);
         title.setTextSize(26);
         title.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
-        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
-        title.setLayoutParams(tp);
+        LinearLayout.LayoutParams ttp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+        title.setLayoutParams(ttp);
         topRow.addView(title);
         statusText = new TextView(this);
         statusText.setText("●");
@@ -256,7 +256,7 @@ public class MainActivity extends AppCompatActivity {
             tab.setTextColor(0xFF6b6f80);
             tab.setTextSize(13);
             tab.setBackgroundColor(0x00000000);
-            LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+            LinearLayout.LayoutParams ttp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
             tab.setLayoutParams(tp);
             int idx = i;
             tab.setOnClickListener(v -> {
@@ -599,7 +599,7 @@ public class MainActivity extends AppCompatActivity {
                     c.setTextColor(j == idx ? 0xFFFFFFFF : 0xFF6b6f80);
                 }
             });
-            LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+            LinearLayout.LayoutParams ttp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
             tp.setMargins(0, 0, 4, 0);
             tab.setLayoutParams(tp);
             tabs.addView(tab);
