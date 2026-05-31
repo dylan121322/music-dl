@@ -362,10 +362,12 @@ public class MainActivity extends AppCompatActivity {
                 apiGet("/api/cache?url=" + encode(url), new Callback() {
                     public void onResult(JSONObject cr) {
                         String path = cr.optString("path", "");
+                        boolean cached = cr.optBoolean("cached", false);
+                        long size = cr.optLong("size", 0);
                         if (!path.isEmpty()) {
-                            mainHandler.post(() -> playFile(path));
+                            mainHandler.post(() -> { toast("缓存OK:" + (size/1024) + "KB"); playFile(path); });
                         } else {
-                            mainHandler.post(() -> toast("下载失败"));
+                            mainHandler.post(() -> toast("下载失败: path为空"));
                         }
                     }
                     public void onError(String e) { mainHandler.post(() -> toast("缓存失败: " + e)); }
@@ -402,11 +404,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void playFile(String path) {
+        if (path == null || path.isEmpty()) { toast("路径无效"); return; }
         try {
             java.io.File f = new java.io.File(path);
-            if (!f.exists()) { toast("文件不存在:" + path); return; }
+            if (!f.exists()) { toast("文件不存在:" + path.substring(Math.max(0, path.length() - 30))); return; }
             if (mediaPlayer != null) { mediaPlayer.release(); }
             mediaPlayer = new MediaPlayer();
+            mediaPlayer.setAudioStreamType(android.media.AudioManager.STREAM_MUSIC);
             mediaPlayer.setDataSource(path);
             mediaPlayer.setOnPreparedListener(mp -> {
                 mp.start();
