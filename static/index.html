@@ -385,20 +385,25 @@ function playSong(mid,title,artist){
   bar.classList.add('active');
   document.getElementById('playPauseBtn').textContent='⏳';
   const actx=new(window.AudioContext||window.webkitAudioContext)();actx.resume();window._audioCtx=actx;
+  let debugUrl='';
   fetch('/api/play',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mid,quality})})
     .then(r=>r.json()).then(d=>{
       if(!d.url)throw new Error('no url');
+      debugUrl=d.url;
       return fetch('/api/stream?url='+encodeURIComponent(d.url));
-    }).then(r=>{if(!r.ok)throw new Error('stream');return r.arrayBuffer()})
-    .then(buf=>window._audioCtx.decodeAudioData(buf.slice(0)))
-    .then(audioBuf=>{
-      const src=window._audioCtx.createBufferSource();
-      src.buffer=audioBuf;src.connect(window._audioCtx.destination);src.start(0);
-      window._audioSrc=src;
-      document.getElementById('playPauseBtn').textContent='⏸';
+    }).then(r=>{if(!r.ok)throw new Error('stream err '+r.status);return r.arrayBuffer()})
+    .then(buf=>{
+      if(buf.byteLength<1000)throw new Error('audio too small: '+buf.byteLength+'b');
+      return actx.decodeAudioData(buf.slice(0));
+    }).then(audioBuf=>{
+      const src=actx.createBufferSource();
+      src.buffer=audioBuf;src.connect(actx.destination);src.start(0);
+      window._audioSrc=src;document.getElementById('playPauseBtn').textContent='⏸';
+      document.getElementById('trackList').innerHTML='';
     }).catch(e=>{
       document.getElementById('playPauseBtn').textContent='▶';
-      document.getElementById('trackList').innerHTML='<div class=empty-state><p style=color:red>'+JSON.stringify({name:e?.name,msg:e?.message})+ '</p></div>';
+      const info={name:e?.name||'?',msg:e?.message||String(e||'')||'?',url:debugUrl.substring(0,60)};
+      document.getElementById('trackList').innerHTML='<div class=empty-state><p style=color:red>'+JSON.stringify(info)+'</p></div>';
     });
 }
 // ── Login ──
