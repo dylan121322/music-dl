@@ -219,10 +219,12 @@ def api_search(body: SearchRequest):
             key = f"{d['title']}|{d['singer']}"
             if key in merged:
                 merged[key]["sources"].append(d["source"])
-                if not d["is_gray"]:  # free on QQ = mark free
+                if not d["is_gray"]:
                     merged[key]["is_gray"] = False
+                merged[key]["qqmid"] = d["mid"]  # keep QQ mid for playback
             else:
                 d["sources"] = [d["source"]]
+                d["qqmid"] = d["mid"]
                 merged[key] = d
 
     def add_source(instance, source_name, limit):

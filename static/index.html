@@ -313,7 +313,7 @@ function renderTracks(hint){
         <div class="badges">${sbs}${gb}</div>
       </div>
       <div class="actions" onclick="event.stopPropagation()">
-        <button onclick="playSong('${esc(s.mid)}','${esc(s.title)}','${esc(s.singer)}')">▶</button>
+        <button onclick="playSong('${esc(s.qqmid||s.mid)}','${esc(s.title)}','${esc(s.singer)}')">▶</button>
         <label style="display:flex;align-items:center;margin:0"><input type="checkbox" ${checked} onchange="toggleSong(${i},this.checked)" style="width:18px;height:18px;accent-color:var(--accent)"></label>
       </div>
     </div>`;
