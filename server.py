@@ -314,13 +314,19 @@ def api_stream(path: str = "", url: str = ""):
                 "Referer": "https://y.qq.com",
             }, stream=True, timeout=(5, 30))
             content_type = resp.headers.get("content-type", "audio/mpeg")
-            # Map QQ Music M4A type to something the audio element understands
+            content_length = resp.headers.get("content-length", "")
+            # Map QQ Music M4A type
             if "mp4" in content_type or "m4a" in content_type.lower():
                 content_type = "audio/mp4"
             return StreamingResponse(
                 resp.iter_content(chunk_size=65536),
                 media_type=content_type,
-                headers={"Accept-Ranges": "bytes", "Content-Length": str(resp.headers.get("content-length", ""))}
+                status_code=200,
+                headers={
+                    "Accept-Ranges": "none",
+                    "Content-Length": content_length,
+                    "Content-Type": content_type,
+                }
             )
         except Exception:
             raise HTTPException(status_code=404, detail="Cannot proxy URL")

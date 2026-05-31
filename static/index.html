@@ -385,32 +385,17 @@ function playSong(mid,title,artist){
   document.getElementById('playerArt').textContent='♪';
   bar.classList.add('active');
   document.getElementById('playPauseBtn').textContent='⏳';
-  // Try 320kbps then 128kbps
-  async function tryPlay(quality) {
-    const r = await fetch('/api/play',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mid,quality})});
-    if(!r.ok) throw new Error('Cannot resolve');
-    const d = await r.json();
-    if(!d.url) throw new Error('No URL');
-    return new Promise((resolve) => {
-      player.src = d.url;
+  fetch('/api/play',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mid,quality})})
+    .then(r=>{if(!r.ok)throw new Error();return r.json()})
+    .then(d=>{
+      if(!d.url)throw new Error();
+      player.src='/api/stream?url='+encodeURIComponent(d.url);
       player.load();
-      player.oncanplay = () => { player.play().catch(()=>{}); resolve(true); };
-      player.onerror = () => resolve(false);
-      player.onloadedmetadata = () => { player.play().catch(()=>{}); resolve(true); };
-      setTimeout(() => resolve(false), 3000);
+      player.play().then(()=>{document.getElementById('playPauseBtn').textContent='⏸';}).catch(()=>{});
+    }).catch(()=>{
+      document.getElementById('playPauseBtn').textContent='▶';
+      toast('无法播放','err');
     });
-  }
-  document.getElementById('playPauseBtn').textContent='⏳';
-  tryPlay('320kbps').then(ok => {
-    if(ok) { document.getElementById('playPauseBtn').textContent='⏸'; return; }
-    return tryPlay('128kbps');
-  }).then(ok => {
-    if(ok) document.getElementById('playPauseBtn').textContent='⏸';
-    else { document.getElementById('playPauseBtn').textContent='▶'; toast('播放失败：格式不支持或网络问题','err'); }
-  }).catch(() => {
-    document.getElementById('playPauseBtn').textContent='▶';
-    toast('无法获取播放链接','err');
-  });
 }
 function togglePlayPause(){
   const p=document.getElementById('audioPlayer');
