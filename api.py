@@ -162,8 +162,6 @@ class MusicAPI:
                 srv = "http://aqqmusic.tc.qq.com/"
             if not srv.endswith("/"):
                 srv += "/"
-            if ".m4a" in p.lower():
-                p = p.rsplit(".", 1)[0] + ".aac"
             return srv + p
 
         # Try requested quality first
