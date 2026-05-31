@@ -9,7 +9,7 @@
         android:allowBackup="true"
         android:label="Music DL"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AppCompat.NoActionBar"
+        android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
 
         <activity
