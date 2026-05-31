@@ -88,7 +88,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         // StrictMode in debug builds
-        if (BuildConfig.DEBUG) {
+        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
             StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder()
                 .detectDiskReads().detectDiskWrites().detectNetwork()
                 .penaltyLog().build());
@@ -321,8 +321,7 @@ public class MainActivity extends AppCompatActivity {
         progressBar.setVisibility(View.VISIBLE);
         resultList.removeAllViews();
         JSONObject body = new JSONObject();
-        body.put("keyword", kw);
-        body.put("limit", 20);
+        try { body.put("keyword", kw); body.put("limit", 20); } catch (Exception e) {}
         apiPost("/api/search", body.toString(), new Callback() {
             public void onResult(JSONObject r) {
                 JSONArray songs = r.optJSONArray("songs");
@@ -470,8 +469,7 @@ public class MainActivity extends AppCompatActivity {
         playPauseBtn.setText("⏳");
 
         JSONObject playBody = new JSONObject();
-        playBody.put("mid", mid);
-        playBody.put("quality", quality);
+        try { playBody.put("mid", mid); playBody.put("quality", quality); } catch (Exception e) {}
         apiPost("/api/play", playBody.toString(), new Callback() {
             public void onResult(JSONObject r) {
                 String url = r.optString("url", "");
@@ -738,8 +736,7 @@ public class MainActivity extends AppCompatActivity {
         String cookie = CookieManager.getInstance().getCookie(domain);
         if (cookie == null || cookie.isEmpty()) { toast("未找到Cookie，请先登录"); return; }
         JSONObject loginBody = new JSONObject();
-        loginBody.put("cookie", cookie);
-        loginBody.put("platform", currentPlatform);
+        try { loginBody.put("cookie", cookie); loginBody.put("platform", currentPlatform); } catch (Exception e) {}
         apiPost("/api/login/cookie?platform=" + currentPlatform,
             loginBody.toString(), new Callback() {
             public void onResult(JSONObject r) {
