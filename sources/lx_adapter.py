@@ -11,7 +11,7 @@ import re
 import json
 import requests
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict
 from sources.base import MusicSource, SearchResult
 
 

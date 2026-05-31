@@ -24,7 +24,6 @@ _ai_sources: List[TemplateSource] = []
 
 # LX Music JS sources (loaded from ~/.config/music-dl/lx_sources/)
 _lx_sources: list = []
-_lx_source_dir = _Path(__file__).parent.parent / ".lx_sources"
 
 
 def load_lx_sources() -> list:
@@ -94,14 +93,6 @@ def run_ai_discovery(
         })
 
     return discovered_info
-
-
-def get_all_sources() -> List[MusicSource]:
-    """Get all available sources."""
-    sources: List[MusicSource] = list(RELIABLE_SOURCES)
-    sources.extend(discover_sources())  # template-based
-    sources.extend(_ai_sources)         # AI-discovered
-    return sources
 
 
 def test_all_sources() -> Dict[str, dict]:
