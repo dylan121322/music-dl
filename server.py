@@ -338,9 +338,11 @@ def api_cache(url: str):
         return {"path": str(cache_file), "cached": True}
 
     try:
+        api = get_api()
         resp = _req.get(url, headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             "Referer": "https://y.qq.com",
+            "Cookie": api.session.headers.get("Cookie", ""),
         }, timeout=30)
         with open(cache_file, "wb") as f:
             for chunk in resp.iter_content(65536):
