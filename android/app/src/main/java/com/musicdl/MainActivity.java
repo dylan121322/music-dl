@@ -39,7 +39,8 @@ import java.util.concurrent.*;
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MusicDL";
     private static final String API = "http://127.0.0.1:8765";
-    private static final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private static final ExecutorService serverExecutor = Executors.newSingleThreadExecutor();
+    private static final ExecutorService apiExecutor = Executors.newCachedThreadPool();
     private static final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private LinearLayout mainLayout, resultList, miniPlayer, downloadList;
@@ -67,8 +68,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Start Python server
-        executor.execute(() -> {
+        // Start Python server (separate thread, never blocks API calls)
+        serverExecutor.execute(() -> {
             if (!Python.isStarted()) Python.start(new AndroidPlatform(this));
             Python.getInstance().getModule("server_runner").callAttr("run_server");
         });
@@ -594,7 +595,7 @@ public class MainActivity extends AppCompatActivity {
     // ── Helpers ──
 
     private void apiGet(String path, Callback cb) {
-        executor.execute(() -> {
+        apiExecutor.execute(() -> {
             try {
                 URL u = new URL(API + path);
                 HttpURLConnection c = (HttpURLConnection) u.openConnection();
@@ -608,7 +609,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void apiPost(String path, String body, Callback cb) {
-        executor.execute(() -> {
+        apiExecutor.execute(() -> {
             try {
                 URL u = new URL(API + path);
                 HttpURLConnection c = (HttpURLConnection) u.openConnection();
