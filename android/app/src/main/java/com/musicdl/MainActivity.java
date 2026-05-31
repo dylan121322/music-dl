@@ -357,9 +357,10 @@ public class MainActivity extends AppCompatActivity {
                 if (url.isEmpty()) { mainHandler.post(() -> toast("无法获取播放链接")); return; }
                 if (!url.startsWith("http")) { mainHandler.post(() -> toast("无效链接:" + url.substring(0,30))); return; }
                 currentPlayUrl = url;
+                String proxyUrl = "http://127.0.0.1:8765/api/stream?url=" + encode(url);
                 mainHandler.post(() -> {
                     toast("开始播放...");
-                    playUrl(url);
+                    playUrl(proxyUrl);
                 });
             }
             public void onError(String e) { mainHandler.post(() -> toast("播放失败: " + (e != null ? e : "unknown"))); }
@@ -379,7 +380,7 @@ public class MainActivity extends AppCompatActivity {
                 toast("正在播放");
             });
             mediaPlayer.setOnCompletionListener(mp -> playPauseBtn.setText("▶"));
-            mediaPlayer.setOnErrorListener((mp, w, e) -> { toast("播放错误: " + e); return true; });
+            mediaPlayer.setOnErrorListener((mp, w, e) -> { toast("错误:" + w + "/" + e); return true; });
             mediaPlayer.setOnInfoListener((mp, what, extra) -> {
                 if (what == MediaPlayer.MEDIA_INFO_BUFFERING_START) toast("缓冲中...");
                 if (what == MediaPlayer.MEDIA_INFO_BUFFERING_END) toast("缓冲完成");
@@ -402,7 +403,7 @@ public class MainActivity extends AppCompatActivity {
                 playPauseBtn.setText("⏸");
             });
             mediaPlayer.setOnCompletionListener(mp -> playPauseBtn.setText("▶"));
-            mediaPlayer.setOnErrorListener((mp, w, e) -> { toast("播放错误: " + e); return true; });
+            mediaPlayer.setOnErrorListener((mp, w, e) -> { toast("错误:" + w + "/" + e); return true; });
             mediaPlayer.prepareAsync();
         } catch (Exception e) {
             toast("播放失败: " + e.getMessage());
