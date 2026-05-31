@@ -126,6 +126,25 @@ def _dict_to_song(d: dict) -> Song:
 # ── API Routes ──
 
 
+@app.get("/debug/play")
+def debug_play():
+    import requests as _req
+    api = get_api()
+    songs = api.search("晴天", limit=3)
+    results = []
+    for song in songs[:2]:
+        for q in ["320kbps", "128kbps"]:
+            url = api.get_song_url(song.mid, q)
+            if url:
+                try:
+                    r = _req.head(url, timeout=5, headers={"User-Agent": "Mozilla/5.0"})
+                    results.append({"title": song.title, "q": q, "status": r.status_code, "type": r.headers.get("content-type","?"), "url": url[:120]})
+                except Exception as e:
+                    results.append({"title": song.title, "q": q, "err": str(e)[:80]})
+                break
+    return {"logged_in": bool(api.g_tk), "uin": api.uin, "results": results}
+
+
 @app.get("/api/status")
 def api_status():
     api = get_api()
