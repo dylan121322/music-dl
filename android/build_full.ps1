@@ -14,8 +14,8 @@ if (Test-Path $runner) { $backup = Get-Content $runner -Raw }
 Remove-Item -Recurse -Force $pyDir -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $pyDir | Out-Null
 
-# Copy ALL .py files
-Get-ChildItem ..\*.py | ForEach-Object { Copy-Item $_.FullName $pyDir\ }
+# Copy ALL .py files (exclude server_runner.py - it's Android-specific, preserved from backup)
+Get-ChildItem ..\*.py | Where-Object { $_.Name -ne 'server_runner.py' } | ForEach-Object { Copy-Item $_.FullName $pyDir\ }
 Copy-Item -Recurse ..\sources $pyDir\sources -Force -ErrorAction SilentlyContinue
 Copy-Item -Recurse ..\static $pyDir\static -Force -ErrorAction SilentlyContinue
 
