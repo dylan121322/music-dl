@@ -351,6 +351,7 @@ public class MainActivity extends AppCompatActivity {
         playerArtist.setText(singer);
         miniPlayer.setVisibility(View.VISIBLE);
         playPauseBtn.setText("⏳");
+        toast("PLAY: " + title);
         apiPost("/api/play", "{\"mid\":\"" + escape(mid) + "\",\"quality\":\"" + quality + "\"}", new Callback() {
             public void onResult(JSONObject r) {
                 String url = r.optString("url", "");
