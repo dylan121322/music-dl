@@ -283,12 +283,33 @@ def api_downloads():
 
 
 @app.get("/api/stream")
-def api_stream(path: str):
-    """Stream a local music file for playback."""
-    file_path = Path(path)
-    if not file_path.exists() or not file_path.is_file():
-        raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(file_path, media_type="audio/mpeg")
+def api_stream(path: str = "", url: str = ""):
+    """Stream audio: local file (path param) or proxy external URL (url param)."""
+    import requests as _req
+
+    # Proxy external URL
+    if url:
+        try:
+            resp = _req.get(url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Referer": "https://y.qq.com",
+            }, stream=True, timeout=(5, 30))
+            return StreamingResponse(
+                resp.iter_content(chunk_size=65536),
+                media_type=resp.headers.get("content-type", "audio/mpeg"),
+                headers={"Accept-Ranges": "bytes", "Content-Length": str(resp.headers.get("content-length", ""))}
+            )
+        except Exception:
+            raise HTTPException(status_code=404, detail="Cannot proxy URL")
+
+    # Local file
+    if path:
+        file_path = Path(path)
+        if not file_path.exists() or not file_path.is_file():
+            raise HTTPException(status_code=404, detail="File not found")
+        return FileResponse(file_path, media_type="audio/mpeg")
+
+    raise HTTPException(status_code=400, detail="Missing path or url param")
 
 
 @app.post("/api/play")
