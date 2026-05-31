@@ -389,26 +389,39 @@ function playSong(mid,title,artist){
     .then(r=>{if(!r.ok)throw new Error();return r.json()})
     .then(d=>{
       if(!d.url)throw new Error();
-      // Download as blob to memory, play via object URL (bypasses all CDN/Range/CORS issues)
       document.getElementById('playPauseBtn').textContent='⏳';
       return fetch('/api/stream?url='+encodeURIComponent(d.url));
-    }).then(r=>{if(!r.ok)throw new Error();return r.blob()})
-    .then(blob=>{
-      player.src = URL.createObjectURL(blob);
-      player.play().then(()=>{document.getElementById('playPauseBtn').textContent='⏸';}).catch(()=>{});
-    }).catch(()=>{
+    }).then(r=>{if(!r.ok)throw new Error();return r.arrayBuffer()})
+    .then(buf=>{
+      const ctx = new (window.AudioContext||window.webkitAudioContext)();
+      return ctx.decodeAudioData(buf);
+    }).then(audioBuf=>{
+      const ctx = new (window.AudioContext||window.webkitAudioContext)();
+      const src = ctx.createBufferSource();
+      src.buffer = audioBuf;
+      src.connect(ctx.destination);
+      src.start(0);
+      document.getElementById('playPauseBtn').textContent='⏸';
+      window._audioCtx = ctx;
+      window._audioSrc = src;
+      // Set player title
+      document.getElementById('progInner').style.width='0%';
+    }).catch(e=>{
       document.getElementById('playPauseBtn').textContent='▶';
-      toast('无法播放','err');
+      toast('播放失败: '+((e||{}).message||'未知'),'err');
+      console.log('play error',e);
     });
 }
 function togglePlayPause(){
-  const p=document.getElementById('audioPlayer');
-  if(p.paused){p.play().catch(()=>{});document.getElementById('playPauseBtn').textContent='⏸'}
-  else{p.pause();document.getElementById('playPauseBtn').textContent='▶'}
+  if(window._audioCtx){
+    if(window._audioCtx.state==='running'){window._audioCtx.suspend();document.getElementById('playPauseBtn').textContent='▶'}
+    else{window._audioCtx.resume();document.getElementById('playPauseBtn').textContent='⏸'}
+  }
 }
 function stopPlayer(){
-  const p=document.getElementById('audioPlayer');
-  p.pause();p.src='';document.getElementById('miniPlayer').classList.remove('active');
+  if(window._audioSrc){try{window._audioSrc.stop()}catch(e){}}
+  if(window._audioCtx){window._audioCtx.close();window._audioCtx=null}
+  document.getElementById('miniPlayer').classList.remove('active');
 }
 function updateProgress(){
   const p=document.getElementById('audioPlayer');
