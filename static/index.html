@@ -377,7 +377,6 @@ async function startDownload(){
 
 // ── Play ──
 function playSong(mid,title,artist){
-  const player=document.getElementById('audioPlayer');
   const bar=document.getElementById('miniPlayer');
   const quality=document.getElementById('qualitySelect').value;
   document.getElementById('playerTitle').textContent=title;
@@ -385,95 +384,14 @@ function playSong(mid,title,artist){
   document.getElementById('playerArt').textContent='♪';
   bar.classList.add('active');
   document.getElementById('playPauseBtn').textContent='⏳';
+  const actx=new(window.AudioContext||window.webkitAudioContext)();actx.resume();window._audioCtx=actx;
   fetch('/api/play',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mid,quality})})
-    .then(r=>{if(!r.ok)throw new Error();return r.json()})
-    .then(d=>{
-      if(!d.url)throw new Error();
-      document.getElementById('playPauseBtn').textContent='⏳';
-      return fetch('/api/stream?url='+encodeURIComponent(d.url));
-    }).then(r=>{if(!r.ok)throw new Error();return r.arrayBuffer()})
-    .then(buf=>{
-      const ctx = new (window.AudioContext||window.webkitAudioContext)();
-      return ctx.decodeAudioData(buf);
-    }).then(audioBuf=>{
-      const ctx = new (window.AudioContext||window.webkitAudioContext)();
-      const src = ctx.createBufferSource();
-      src.buffer = audioBuf;
-      src.connect(ctx.destination);
-      src.start(0);
-      document.getElementById('playPauseBtn').textContent='⏸';
-      window._audioCtx = ctx;
-      window._audioSrc = src;
-      // Set player title
-      document.getElementById('progInner').style.width='0%';
-    }).catch(e=>{
-      document.getElementById('playPauseBtn').textContent='▶';
-      toast('播放失败: '+((e||{}).message||'未知'),'err');
-      console.log('play error',e);
-    });
+    .then(r=>r.json()).then(d=>{if(!d.url)throw new Error('no url');return fetch('/api/stream?url='+encodeURIComponent(d.url))})
+    .then(r=>{if(!r.ok)throw new Error('stream');return r.arrayBuffer()})
+    .then(buf=>actx.decodeAudioData(buf))
+    .then(audioBuf=>{const src=actx.createBufferSource();src.buffer=audioBuf;src.connect(actx.destination);src.start(0);window._audioSrc=src;document.getElementById('playPauseBtn').textContent='⏸'})
+    .catch(e=>{document.getElementById('playPauseBtn').textContent='▶';const msg=(e||{}).message||String(e||'')||'?';toast('播放失败:'+msg.substring(0,50),'err')});
 }
-function togglePlayPause(){
-  if(window._audioCtx){
-    if(window._audioCtx.state==='running'){window._audioCtx.suspend();document.getElementById('playPauseBtn').textContent='▶'}
-    else{window._audioCtx.resume();document.getElementById('playPauseBtn').textContent='⏸'}
-  }
-}
-function stopPlayer(){
-  if(window._audioSrc){try{window._audioSrc.stop()}catch(e){}}
-  if(window._audioCtx){window._audioCtx.close();window._audioCtx=null}
-  document.getElementById('miniPlayer').classList.remove('active');
-}
-function updateProgress(){
-  const p=document.getElementById('audioPlayer');
-  if(p.duration)document.getElementById('progInner').style.width=(p.currentTime/p.duration*100)+'%';
-}
-function onPlayEnd(){document.getElementById('playPauseBtn').textContent='▶'}
-function onPlayError(e){
-  const p=document.getElementById('audioPlayer');
-  const err=p.error;
-  const codes={1:'MEDIA_ERR_ABORTED',2:'MEDIA_ERR_NETWORK',3:'MEDIA_ERR_DECODE',4:'MEDIA_ERR_SRC_NOT_SUPPORTED'};
-  const msg=err?`播放失败: ${codes[err.code]||err.code} ${err.message||''}`:'播放失败';
-  document.getElementById('playPauseBtn').textContent='▶';
-  toast(msg,'err');
-  console.log('Audio error:',err?err.code:'none',p.src.substring(0,80));
-  // Try direct CDN URL as fallback
-  if(err && err.code===4 && p.src.includes('/api/stream')){
-    const directUrl=decodeURIComponent(new URL(p.src).searchParams.get('url'));
-    console.log('Fallback to direct:',directUrl.substring(0,80));
-    p.src=directUrl;p.load();p.play().catch(()=>{});
-  }
-}
-
-// ── Android Bridge (delayed check, wait for WebView to init) ──
-setTimeout(() => {
-  if (typeof window.Android !== 'undefined') {
-    const urls = { qq: 'https://y.qq.com', netease: 'https://music.163.com/', kugou: 'https://www.kugou.com/' };
-    const domains = { qq: '.qq.com', netease: '.163.com', kugou: '.kugou.com' };
-    window._androidLogin = true;
-
-    window._openChrome = openChrome;
-    openChrome = function() {
-      const url = urls[currentPlatform] || urls.qq;
-      window.Android.loginPlatform(currentPlatform, url);
-    };
-
-    window._extractCookies = extractCookies;
-    extractCookies = async function() {
-      const domain = domains[currentPlatform];
-      const cookie = window.Android.getCookies(domain);
-      if (cookie) {
-        document.getElementById('cookieInput').value = cookie;
-        await manualLogin();
-        window.Android.toast('Cookie 已提取: ' + currentPlatform);
-        window.Android.goHome();
-        closeSheet('loginSheet');
-      } else {
-        toast('未找到 Cookie，请先在打开的平台页面中登录', 'err');
-      }
-    };
-  }
-}, 1500);
-
 // ── Login ──
 let loginAbort=null;
 async function openChrome(){
