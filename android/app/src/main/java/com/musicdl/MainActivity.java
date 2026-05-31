@@ -356,18 +356,33 @@ public class MainActivity extends AppCompatActivity {
                 String url = r.optString("url", "");
                 if (url.isEmpty()) { mainHandler.post(() -> toast("无法获取播放链接")); return; }
                 currentPlayUrl = url;
-                // Download via cache, then play with MediaPlayer
+                // Try direct play first with MediaPlayer (bypasses cache)
+                mainHandler.post(() -> playUrl(url));
+                // Also cache in background for future plays
                 apiGet("/api/cache?url=" + encode(url), new Callback() {
-                    public void onResult(JSONObject cr) {
-                        String path = cr.optString("path", "");
-                        if (path.isEmpty()) { mainHandler.post(() -> toast("下载失败")); return; }
-                        mainHandler.post(() -> playFile(path));
-                    }
-                    public void onError(String e) { mainHandler.post(() -> toast("缓存失败")); }
+                    public void onResult(JSONObject cr) {}
+                    public void onError(String e) {}
                 });
             }
-            public void onError(String e) { mainHandler.post(() -> toast("播放失败")); }
+            public void onError(String e) { mainHandler.post(() -> toast("播放失败: " + (e != null ? e : "unknown"))); }
         });
+    }
+
+    private void playUrl(String url) {
+        try {
+            if (mediaPlayer != null) { mediaPlayer.release(); }
+            mediaPlayer = new MediaPlayer();
+            mediaPlayer.setDataSource(url);
+            mediaPlayer.setOnPreparedListener(mp -> {
+                mp.start();
+                playPauseBtn.setText("⏸");
+            });
+            mediaPlayer.setOnCompletionListener(mp -> playPauseBtn.setText("▶"));
+            mediaPlayer.setOnErrorListener((mp, w, e) -> { toast("播放错误: " + e); return true; });
+            mediaPlayer.prepareAsync();
+        } catch (Exception ex) {
+            toast("播放失败: " + ex.getMessage());
+        }
     }
 
     private void playFile(String path) {
