@@ -156,8 +156,12 @@ class MusicAPI:
         st_map = {"128kbps": 0, "320kbps": 1, "flac": 2}
         songtype = st_map.get(quality, 1)
 
-        def _build_url(p, srv):
-            # Change .m4a to .mp3 for Android WebView compatibility (same CDN content)
+        def _build_url(p, data):
+            # Use the real CDN server from vkey response (sip list), fallback to default
+            sip_list = data.get("sip", [])
+            srv = sip_list[0] if sip_list else data.get("server", "http://aqqmusic.tc.qq.com/")
+            if not srv.endswith("/"):
+                srv += "/"
             if ".m4a" in p.lower():
                 p = p.rsplit(".", 1)[0] + ".mp3"
             return srv + p
@@ -165,13 +169,13 @@ class MusicAPI:
         # Try requested quality first
         data = self._get_vkey(song_mid, songtype)
         if data and data.get("purl"):
-            return _build_url(data["purl"], data.get("server", "http://aqqmusic.tc.qq.com/"))
+            return _build_url(data["purl"], data)
 
         # If logged in but higher quality failed, try 128kbps
         if songtype > 0:
             data = self._get_vkey(song_mid, 0)
             if data and data.get("purl"):
-                return _build_url(data["purl"], data.get("server", "http://aqqmusic.tc.qq.com/"))
+                return _build_url(data["purl"], data)
 
         return None
 
