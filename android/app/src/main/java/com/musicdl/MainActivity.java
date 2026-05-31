@@ -351,18 +351,15 @@ public class MainActivity extends AppCompatActivity {
         playerArtist.setText(singer);
         miniPlayer.setVisibility(View.VISIBLE);
         playPauseBtn.setText("⏳");
-        toast("PLAY: " + title);
         apiPost("/api/play", "{\"mid\":\"" + escape(mid) + "\",\"quality\":\"" + quality + "\"}", new Callback() {
             public void onResult(JSONObject r) {
                 String url = r.optString("url", "");
                 if (url.isEmpty()) { mainHandler.post(() -> toast("无法获取播放链接")); return; }
+                if (!url.startsWith("http")) { mainHandler.post(() -> toast("无效链接:" + url.substring(0,30))); return; }
                 currentPlayUrl = url;
-                // Try direct play first with MediaPlayer (bypasses cache)
-                mainHandler.post(() -> playUrl(url));
-                // Also cache in background for future plays
-                apiGet("/api/cache?url=" + encode(url), new Callback() {
-                    public void onResult(JSONObject cr) {}
-                    public void onError(String e) {}
+                mainHandler.post(() -> {
+                    toast("开始播放...");
+                    playUrl(url);
                 });
             }
             public void onError(String e) { mainHandler.post(() -> toast("播放失败: " + (e != null ? e : "unknown"))); }
