@@ -338,10 +338,14 @@ def api_stream(path: str = "", url: str = ""):
     # Proxy external URL
     if url:
         try:
-            resp = _req.get(url, headers={
+            # Use the API's session cookies for CDN auth
+            api = get_api()
+            headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                 "Referer": "https://y.qq.com",
-            }, stream=True, timeout=(5, 30))
+                "Cookie": api.session.headers.get("Cookie", ""),
+            }
+            resp = _req.get(url, headers=headers, stream=True, timeout=(5, 30))
             content_type = resp.headers.get("content-type", "audio/mpeg")
             content_length = resp.headers.get("content-length", "")
             # Map QQ Music M4A type
