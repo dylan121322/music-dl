@@ -401,21 +401,39 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showLoginDialog() {
+        // Remove any existing overlay first
+        View existing = findViewById(9999);
+        if (existing != null) ((ViewGroup) existing.getParent()).removeView(existing);
+
+        // Dark overlay that dismisses on tap
+        FrameLayout overlay = new FrameLayout(this);
+        overlay.setId(9999);
+        overlay.setBackgroundColor(0x99000000);
+        overlay.setOnClickListener(v -> ((ViewGroup) overlay.getParent()).removeView(overlay));
+        overlay.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // Sheet
         LinearLayout sheet = new LinearLayout(this);
         sheet.setOrientation(LinearLayout.VERTICAL);
         sheet.setBackgroundColor(0xFF12141c);
-        sheet.setPadding(24, 24, 24, 24);
+        sheet.setPadding(32, 32, 32, 32);
+        FrameLayout.LayoutParams sp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        sp.gravity = android.view.Gravity.BOTTOM;
+        sheet.setLayoutParams(sp);
+        sheet.setOnClickListener(v -> {}); // don't dismiss when tapping sheet
 
         TextView sh = new TextView(this);
         sh.setText("登录");
         sh.setTextColor(0xFFe8e8ed);
         sh.setTextSize(18);
         sh.setTypeface(null, Typeface.BOLD);
+        sh.setPadding(0, 0, 0, 16);
         sheet.addView(sh);
 
         // Platform tabs
         LinearLayout tabs = new LinearLayout(this);
         tabs.setOrientation(LinearLayout.HORIZONTAL);
+        tabs.setPadding(0, 0, 0, 12);
         for (int i = 0; i < PLATFORM_NAMES.length; i++) {
             Button tab = new Button(this);
             tab.setText(PLATFORM_NAMES[i]);
@@ -439,13 +457,15 @@ public class MainActivity extends AppCompatActivity {
         }
         sheet.addView(tabs);
 
+        LinearLayout btns = new LinearLayout(this);
+        btns.setOrientation(LinearLayout.HORIZONTAL);
         Button openBtn = new Button(this);
         openBtn.setText("打开登录页");
         openBtn.setTextColor(0xFFFFFFFF);
         openBtn.setBackground(roundedBg(0xFF8b5cf6, 8));
         openBtn.setPadding(20, 12, 20, 12);
-        openBtn.setOnClickListener(v -> showLoginWebView());
-        sheet.addView(openBtn);
+        openBtn.setOnClickListener(v -> showLoginWebView(overlay));
+        btns.addView(openBtn);
 
         Button extractBtn = new Button(this);
         extractBtn.setText("提取Cookie");
@@ -453,33 +473,52 @@ public class MainActivity extends AppCompatActivity {
         extractBtn.setBackground(roundedBg(0xFF10b981, 8));
         extractBtn.setPadding(20, 12, 20, 12);
         extractBtn.setOnClickListener(v -> extractCookie());
-        sheet.addView(extractBtn);
+        LinearLayout.LayoutParams ep = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+        ep.setMargins(8, 0, 0, 0);
+        extractBtn.setLayoutParams(ep);
+        btns.addView(extractBtn);
+        sheet.addView(btns);
 
         Button closeBtn = new Button(this);
         closeBtn.setText("关闭");
         closeBtn.setTextColor(0xFF6b6f80);
         closeBtn.setBackgroundColor(0x00000000);
-        closeBtn.setOnClickListener(v -> {
-            ((ViewGroup) sheet.getParent()).removeView(sheet);
-        });
+        closeBtn.setOnClickListener(v -> ((ViewGroup) overlay.getParent()).removeView(overlay));
         sheet.addView(closeBtn);
 
-        mainLayout.addView(sheet, 0);
+        overlay.addView(sheet);
+        mainLayout.addView(overlay, 0);
     }
 
-    private void showLoginWebView() {
+    private void showLoginWebView(FrameLayout overlay) {
+        LinearLayout webContainer = new LinearLayout(this);
+        webContainer.setOrientation(LinearLayout.VERTICAL);
+        webContainer.setBackgroundColor(0xFF0a0a0f);
+        FrameLayout.LayoutParams wp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        wp.setMargins(16, 60, 16, 60);
+        webContainer.setLayoutParams(wp);
+
         WebView wv = new WebView(this);
         wv.getSettings().setJavaScriptEnabled(true);
         wv.getSettings().setDomStorageEnabled(true);
         wv.getSettings().setUserAgentString("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36");
         wv.setWebViewClient(new WebViewClient());
         CookieManager.getInstance().setAcceptCookie(true);
+        LinearLayout.LayoutParams wvp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1);
+        wv.setLayoutParams(wvp);
+        webContainer.addView(wv);
+
+        Button backBtn = new Button(this);
+        backBtn.setText("← 返回登录页");
+        backBtn.setTextColor(0xFF8b5cf6);
+        backBtn.setBackgroundColor(0x00000000);
+        backBtn.setOnClickListener(v -> { overlay.removeView(webContainer); toast("登录后点提取Cookie"); });
+        webContainer.addView(backBtn);
 
         String[] urls = {"https://y.qq.com", "https://music.163.com", "https://www.kugou.com"};
         int idx = java.util.Arrays.asList(PLATFORM_KEYS).indexOf(currentPlatform);
         wv.loadUrl(urls[Math.max(0, idx)]);
-        mainLayout.addView(wv, 0);
-        toast("登录后点返回，再点提取Cookie");
+        overlay.addView(webContainer);
     }
 
     private void extractCookie() {
