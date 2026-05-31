@@ -397,12 +397,14 @@ public class MainActivity extends AppCompatActivity {
             });
             mediaPlayer.prepareAsync();
         } catch (Exception ex) {
-            toast("播放失败: " + ex.getMessage());
+            toast("播放异常: " + ex.getClass().getSimpleName() + " " + (ex.getMessage() != null ? ex.getMessage() : ""));
         }
     }
 
     private void playFile(String path) {
         try {
+            java.io.File f = new java.io.File(path);
+            if (!f.exists()) { toast("文件不存在:" + path); return; }
             if (mediaPlayer != null) { mediaPlayer.release(); }
             mediaPlayer = new MediaPlayer();
             mediaPlayer.setDataSource(path);
