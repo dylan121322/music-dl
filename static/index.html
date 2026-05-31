@@ -390,7 +390,7 @@ function playSong(mid,title,artist){
     .then(r=>{if(!r.ok)throw new Error('stream');return r.arrayBuffer()})
     .then(buf=>actx.decodeAudioData(buf))
     .then(audioBuf=>{const src=actx.createBufferSource();src.buffer=audioBuf;src.connect(actx.destination);src.start(0);window._audioSrc=src;document.getElementById('playPauseBtn').textContent='⏸'})
-    .catch(e=>{document.getElementById('playPauseBtn').textContent='▶';const msg=(e||{}).message||String(e||'')||'?';toast('播放失败:'+msg.substring(0,50),'err')});
+    .catch(e=>{document.getElementById('playPauseBtn').textContent='▶';const msg=e?.message||e?.name||String(e||'')||'unknown';document.getElementById('trackList').innerHTML='<div class=empty-state><p style=color:red>'+JSON.stringify({name:e?.name,msg:e?.message})+ '</p></div>';toast('播放失败:'+msg.substring(0,50),'err')});
 }
 // ── Login ──
 let loginAbort=null;
