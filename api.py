@@ -157,13 +157,13 @@ class MusicAPI:
         songtype = st_map.get(quality, 1)
 
         def _build_url(p, data):
-            # Use the original CDN server from vkey response
             srv = data.get("server", "http://aqqmusic.tc.qq.com/")
             if not srv:
                 srv = "http://aqqmusic.tc.qq.com/"
             if not srv.endswith("/"):
                 srv += "/"
-            # Don't modify the purl - it may contain query params
+            if ".m4a" in p.lower():
+                p = p.rsplit(".", 1)[0] + ".aac"
             return srv + p
 
         # Try requested quality first
