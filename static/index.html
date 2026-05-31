@@ -385,7 +385,9 @@ function playSong(mid,title,artist){
   document.getElementById('playerArt').textContent='♪';
   bar.classList.add('active');
   document.getElementById('playPauseBtn').textContent='⏳';
-  fetch('/api/play',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mid,quality})})
+  // Prefer MP3 (320kbps) for playback - universally supported by WebView
+  const playQuality = quality === '128kbps' ? '320kbps' : quality;
+  fetch('/api/play',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mid:mid,quality:playQuality})})
     .then(r=>{if(!r.ok)throw new Error('Cannot resolve');return r.json()})
     .then(d=>{
       if(!d.url){throw new Error('No URL')}
