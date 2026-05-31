@@ -1,12 +1,20 @@
 package com.musicdl;
 
 import android.Manifest;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.media.AudioAttributes;
+import android.media.AudioFocusRequest;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.StrictMode;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
@@ -40,7 +48,9 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MusicDL";
     private static final String API = "http://127.0.0.1:8765";
     private static final ExecutorService serverExecutor = Executors.newSingleThreadExecutor();
-    private static final ExecutorService apiExecutor = Executors.newCachedThreadPool();
+    private static final ExecutorService apiExecutor = new ThreadPoolExecutor(
+        2, 4, 30, TimeUnit.SECONDS, new LinkedBlockingQueue<>(16),
+        new ThreadPoolExecutor.CallerRunsPolicy());
     private static final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private LinearLayout mainLayout, resultList, miniPlayer, downloadList;
@@ -61,6 +71,10 @@ public class MainActivity extends AppCompatActivity {
     private String quality = "320kbps";
     private String preferSource = "auto";
     private String currentPlatform = "qq";
+    private AudioManager audioManager;
+    private AudioFocusRequest focusRequest;
+    private boolean audioFocused = false;
+    private BroadcastReceiver noisyReceiver;
 
     private static final String[] PLATFORM_URLS = {
         "https://y.qq.com", "https://music.163.com", "https://www.kugou.com"
@@ -72,7 +86,20 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // StrictMode in debug builds
+        if (BuildConfig.DEBUG) {
+            StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder()
+                .detectDiskReads().detectDiskWrites().detectNetwork()
+                .penaltyLog().build());
+            StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder()
+                .detectLeakedSqlLiteObjects().detectLeakedClosableObjects()
+                .penaltyLog().build());
+        }
+
         setContentView(R.layout.activity_main);
+
+        audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
 
         // Start Python server (separate thread, never blocks API calls)
         serverExecutor.execute(() -> {
@@ -293,7 +320,10 @@ public class MainActivity extends AppCompatActivity {
         if (kw.trim().isEmpty()) { resultList.removeAllViews(); return; }
         progressBar.setVisibility(View.VISIBLE);
         resultList.removeAllViews();
-        apiPost("/api/search", "{\"keyword\":\"" + escape(kw) + "\",\"limit\":20}", new Callback() {
+        JSONObject body = new JSONObject();
+        body.put("keyword", kw);
+        body.put("limit", 20);
+        apiPost("/api/search", body.toString(), new Callback() {
             public void onResult(JSONObject r) {
                 JSONArray songs = r.optJSONArray("songs");
                 currentSongs = songs != null ? songs : new JSONArray();
@@ -439,7 +469,10 @@ public class MainActivity extends AppCompatActivity {
         miniPlayer.setVisibility(View.VISIBLE);
         playPauseBtn.setText("⏳");
 
-        apiPost("/api/play", "{\"mid\":\"" + escape(mid) + "\",\"quality\":\"" + quality + "\"}", new Callback() {
+        JSONObject playBody = new JSONObject();
+        playBody.put("mid", mid);
+        playBody.put("quality", quality);
+        apiPost("/api/play", playBody.toString(), new Callback() {
             public void onResult(JSONObject r) {
                 String url = r.optString("url", "");
                 if (url.isEmpty()) { failAndRetry("无法获取播放链接"); return; }
@@ -483,8 +516,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void playUrl(String url) {
+        if (!requestAudioFocus()) {
+            toast("无法获取音频焦点");
+        }
         try {
-            if (mediaPlayer != null) { mediaPlayer.release(); }
+            releaseMediaPlayer();
             mediaPlayer = new MediaPlayer();
             mediaPlayer.setAudioStreamType(android.media.AudioManager.STREAM_MUSIC);
             mediaPlayer.setDataSource(url);
@@ -494,17 +530,17 @@ public class MainActivity extends AppCompatActivity {
                 playPauseBtn.setText("⏸");
                 toast("正在播放");
             });
-            mediaPlayer.setOnCompletionListener(mp -> playPauseBtn.setText("▶"));
-            mediaPlayer.setOnErrorListener((mp, w, e) -> { toast("错误:" + w + "/" + e); return true; });
+            mediaPlayer.setOnCompletionListener(mp -> { playPauseBtn.setText("▶"); abandonAudioFocus(); });
+            mediaPlayer.setOnErrorListener((mp, w, e) -> { toast("错误:" + w + "/" + e); abandonAudioFocus(); return true; });
             mediaPlayer.setOnInfoListener((mp, what, extra) -> {
                 if (what == MediaPlayer.MEDIA_INFO_BUFFERING_START) toast("缓冲中...");
                 if (what == MediaPlayer.MEDIA_INFO_BUFFERING_END) toast("缓冲完成");
-                if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) toast("开始渲染");
                 return false;
             });
             mediaPlayer.prepareAsync();
         } catch (Exception ex) {
             toast("播放异常: " + ex.getClass().getSimpleName() + " " + (ex.getMessage() != null ? ex.getMessage() : ""));
+            abandonAudioFocus();
         }
     }
 
@@ -516,7 +552,10 @@ public class MainActivity extends AppCompatActivity {
                 mainHandler.post(() -> { toast("文件不存在"); retryBtn.setVisibility(View.VISIBLE); });
                 return;
             }
-            if (mediaPlayer != null) { mediaPlayer.release(); }
+            if (!requestAudioFocus()) {
+                toast("无法获取音频焦点");
+            }
+            releaseMediaPlayer();
             mediaPlayer = new MediaPlayer();
             mediaPlayer.setAudioStreamType(android.media.AudioManager.STREAM_MUSIC);
             mediaPlayer.setDataSource(path);
@@ -524,27 +563,38 @@ public class MainActivity extends AppCompatActivity {
                 mp.start();
                 playPauseBtn.setText("⏸");
             });
-            mediaPlayer.setOnCompletionListener(mp -> playPauseBtn.setText("▶"));
+            mediaPlayer.setOnCompletionListener(mp -> { playPauseBtn.setText("▶"); abandonAudioFocus(); });
             mediaPlayer.setOnErrorListener((mp, w, e) -> {
                 mainHandler.post(() -> { toast("播放错误:" + w + "/" + e); retryBtn.setVisibility(View.VISIBLE); });
+                abandonAudioFocus();
                 return true;
             });
             mediaPlayer.prepareAsync();
         } catch (Exception e) {
             mainHandler.post(() -> { toast("播放失败: " + e.getMessage()); retryBtn.setVisibility(View.VISIBLE); });
+            abandonAudioFocus();
         }
     }
 
     private void togglePlay() {
         if (mediaPlayer == null) return;
         try {
-            if (mediaPlayer.isPlaying()) { mediaPlayer.pause(); playPauseBtn.setText("▶"); }
-            else { mediaPlayer.start(); playPauseBtn.setText("⏸"); }
-        } catch (Exception e) {}
+            if (mediaPlayer.isPlaying()) {
+                mediaPlayer.pause();
+                mainHandler.post(() -> playPauseBtn.setText("▶"));
+            } else {
+                mediaPlayer.start();
+                mainHandler.post(() -> playPauseBtn.setText("⏸"));
+            }
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "togglePlay failed", e);
+            mainHandler.post(() -> toast("播放状态异常，请重试"));
+        }
     }
 
     private void stopPlay() {
-        if (mediaPlayer != null) { try { mediaPlayer.stop(); mediaPlayer.release(); } catch (Exception e) {} mediaPlayer = null; }
+        releaseMediaPlayer();
+        abandonAudioFocus();
         miniPlayer.setVisibility(View.GONE);
         retryBtn.setVisibility(View.GONE);
     }
@@ -559,7 +609,10 @@ public class MainActivity extends AppCompatActivity {
         loginOverlay = overlay;
         overlay.setId(9999);
         overlay.setBackgroundColor(0x99000000);
-        overlay.setOnClickListener(v -> ((ViewGroup) overlay.getParent()).removeView(overlay));
+        overlay.setOnClickListener(v -> {
+            ((ViewGroup) overlay.getParent()).removeView(overlay);
+            loginOverlay = null;
+        });
         overlay.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         // Sheet
@@ -653,6 +706,7 @@ public class MainActivity extends AppCompatActivity {
         loginWebView = wv;
         wv.getSettings().setJavaScriptEnabled(true);
         wv.getSettings().setDomStorageEnabled(true);
+        wv.getSettings().setAllowFileAccess(false);
         wv.getSettings().setUserAgentString("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36");
         wv.setWebViewClient(new WebViewClient());
         CookieManager.getInstance().setAcceptCookie(true);
@@ -664,7 +718,13 @@ public class MainActivity extends AppCompatActivity {
         backBtn.setText("← 返回登录页");
         backBtn.setTextColor(0xFF8b5cf6);
         backBtn.setBackgroundColor(0x00000000);
-        backBtn.setOnClickListener(v -> { overlay.removeView(webContainer); toast("登录后点提取Cookie"); });
+        backBtn.setOnClickListener(v -> {
+            overlay.removeView(webContainer);
+            if (loginWebView != null) { try { loginWebView.destroy(); } catch (Exception ignored) {} }
+            loginWebView = null;
+            loginWebContainer = null;
+            toast("登录后点提取Cookie");
+        });
         webContainer.addView(backBtn);
 
         String[] urls = {"https://y.qq.com", "https://music.163.com", "https://www.kugou.com"};
@@ -677,8 +737,11 @@ public class MainActivity extends AppCompatActivity {
         String domain = PLATFORM_DOMAINS[Math.max(0, java.util.Arrays.asList(PLATFORM_KEYS).indexOf(currentPlatform))];
         String cookie = CookieManager.getInstance().getCookie(domain);
         if (cookie == null || cookie.isEmpty()) { toast("未找到Cookie，请先登录"); return; }
+        JSONObject loginBody = new JSONObject();
+        loginBody.put("cookie", cookie);
+        loginBody.put("platform", currentPlatform);
         apiPost("/api/login/cookie?platform=" + currentPlatform,
-            "{\"cookie\":\"" + escape(cookie) + "\",\"platform\":\"" + currentPlatform + "\"}", new Callback() {
+            loginBody.toString(), new Callback() {
             public void onResult(JSONObject r) {
                 mainHandler.post(() -> { checkServer(); toast("Cookie已保存"); });
             }
@@ -789,14 +852,10 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void run() {
             long elapsed = System.currentTimeMillis() - cacheStartMs;
-            int sec = (int)(elapsed / 1000);
-            int estimatedTotalSec;
-            if (quality.equals("flac")) estimatedTotalSec = 30;
-            else if (quality.equals("128kbps")) estimatedTotalSec = 5;
-            else estimatedTotalSec = 10;
-            int pct = Math.min(95, sec * 100 / Math.max(1, estimatedTotalSec));
-            toast("下载中 " + pct + "%...");
-            mainHandler.postDelayed(this, 3000);
+            if (elapsed > 30000) {
+                toast("缓存时间较长，请稍候...");
+            }
+            mainHandler.postDelayed(this, 15000);
         }
     };
 
@@ -812,8 +871,9 @@ public class MainActivity extends AppCompatActivity {
         // WebView showing but at root -> return to login sheet
         if (loginWebContainer != null && loginWebContainer.getParent() != null) {
             ((ViewGroup) loginWebContainer.getParent()).removeView(loginWebContainer);
-            loginWebContainer = null;
+            if (loginWebView != null) { try { loginWebView.destroy(); } catch (Exception ignored) {} }
             loginWebView = null;
+            loginWebContainer = null;
             toast("登录后点提取Cookie");
             return;
         }
@@ -826,27 +886,150 @@ public class MainActivity extends AppCompatActivity {
         super.onBackPressed();
     }
 
-    // ── Helpers ──
+    @Override
+    protected void onDestroy() {
+        releaseMediaPlayer();
+        if (noisyReceiver != null) {
+            try { unregisterReceiver(noisyReceiver); } catch (Exception ignored) {}
+            noisyReceiver = null;
+        }
+        abandonAudioFocus();
+        // Destroy WebView if still alive (login flow may retain it)
+        if (loginWebView != null) {
+            try { loginWebView.destroy(); } catch (Exception ignored) {}
+            loginWebView = null;
+        }
+        super.onDestroy();
+    }
+
+    // ── Audio Focus ──
+
+    private boolean requestAudioFocus() {
+        if (audioFocused) return true;
+        if (audioManager == null) return false;
+        if (Build.VERSION.SDK_INT >= 26) {
+            AudioAttributes attrs = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build();
+            focusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(attrs)
+                .setOnAudioFocusChangeListener(this::onAudioFocusChange)
+                .build();
+            int res = audioManager.requestAudioFocus(focusRequest);
+            audioFocused = (res == AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
+        } else {
+            int res = audioManager.requestAudioFocus(
+                this::onAudioFocusChangeLegacy,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN);
+            audioFocused = (res == AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
+        }
+        if (audioFocused) registerNoisyReceiver();
+        return audioFocused;
+    }
+
+    private void abandonAudioFocus() {
+        if (!audioFocused) return;
+        audioFocused = false;
+        if (audioManager == null) return;
+        if (Build.VERSION.SDK_INT >= 26 && focusRequest != null) {
+            audioManager.abandonAudioFocusRequest(focusRequest);
+        } else {
+            audioManager.abandonAudioFocus(this::onAudioFocusChangeLegacy);
+        }
+        unregisterNoisyReceiver();
+    }
+
+    private void onAudioFocusChange(int focusChange) {
+        if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
+            stopPlay();
+        } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+            if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                mediaPlayer.pause();
+                mainHandler.post(() -> playPauseBtn.setText("▶"));
+            }
+        } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
+            if (mediaPlayer != null) {
+                mediaPlayer.setVolume(0.3f, 0.3f);
+            }
+        } else if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
+            if (mediaPlayer != null) {
+                mediaPlayer.setVolume(1.0f, 1.0f);
+                if (!mediaPlayer.isPlaying()) {
+                    try { mediaPlayer.start(); } catch (IllegalStateException ignored) {}
+                    mainHandler.post(() -> playPauseBtn.setText("⏸"));
+                }
+            }
+        }
+    }
+
+    // Legacy callback for pre-API-26
+    @SuppressWarnings("deprecation")
+    private void onAudioFocusChangeLegacy(int focusChange) {
+        onAudioFocusChange(focusChange);
+    }
+
+    private void registerNoisyReceiver() {
+        if (noisyReceiver != null) return;
+        noisyReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (AudioManager.ACTION_AUDIO_BECOMING_NOISY.equals(intent.getAction())) {
+                    if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                        mediaPlayer.pause();
+                        mainHandler.post(() -> { playPauseBtn.setText("▶"); toast("耳机已断开"); });
+                    }
+                }
+            }
+        };
+        IntentFilter filter = new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(noisyReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(noisyReceiver, filter);
+        }
+    }
+
+    private void unregisterNoisyReceiver() {
+        if (noisyReceiver != null) {
+            try { unregisterReceiver(noisyReceiver); } catch (Exception ignored) {}
+            noisyReceiver = null;
+        }
+    }
+
+    private void releaseMediaPlayer() {
+        if (mediaPlayer != null) {
+            try {
+                if (mediaPlayer.isPlaying()) mediaPlayer.stop();
+                mediaPlayer.release();
+            } catch (Exception ignored) {}
+            mediaPlayer = null;
+        }
+    }
 
     private void apiGet(String path, Callback cb) {
         apiExecutor.execute(() -> {
+            HttpURLConnection c = null;
             try {
                 URL u = new URL(API + path);
-                HttpURLConnection c = (HttpURLConnection) u.openConnection();
+                c = (HttpURLConnection) u.openConnection();
                 c.setRequestMethod("GET");
                 c.setConnectTimeout(5000);
                 c.setReadTimeout(15000);
                 String resp = readStream(c.getInputStream());
                 cb.onResult(new JSONObject(resp));
             } catch (Exception e) { cb.onError(e.getMessage()); }
+            finally { if (c != null) c.disconnect(); }
         });
     }
 
     private void apiPost(String path, String body, Callback cb) {
         apiExecutor.execute(() -> {
+            HttpURLConnection c = null;
             try {
                 URL u = new URL(API + path);
-                HttpURLConnection c = (HttpURLConnection) u.openConnection();
+                c = (HttpURLConnection) u.openConnection();
                 c.setRequestMethod("POST");
                 c.setDoOutput(true);
                 c.setRequestProperty("Content-Type", "application/json");
@@ -856,19 +1039,19 @@ public class MainActivity extends AppCompatActivity {
                 String resp = readStream(c.getInputStream());
                 cb.onResult(new JSONObject(resp));
             } catch (Exception e) { cb.onError(e.getMessage()); }
+            finally { if (c != null) c.disconnect(); }
         });
     }
 
     private String readStream(InputStream is) throws IOException {
-        BufferedReader r = new BufferedReader(new InputStreamReader(is, "UTF-8"));
         StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = r.readLine()) != null) sb.append(line);
-        r.close();
+        try (BufferedReader r = new BufferedReader(new InputStreamReader(is, "UTF-8"))) {
+            String line;
+            while ((line = r.readLine()) != null) sb.append(line);
+        }
         return sb.toString();
     }
 
-    private String escape(String s) { return s.replace("\\", "\\\\").replace("\"", "\\\""); }
     private String encode(String s) { try { return URLEncoder.encode(s, "UTF-8"); } catch (Exception e) { return s; } }
 
     private GradientDrawable roundedBg(int color, int radius) {
