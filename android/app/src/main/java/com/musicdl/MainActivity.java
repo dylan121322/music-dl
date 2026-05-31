@@ -256,8 +256,9 @@ public class MainActivity extends AppCompatActivity {
             tab.setTextColor(0xFF6b6f80);
             tab.setTextSize(13);
             tab.setBackgroundColor(0x00000000);
-            LinearLayout.LayoutParams titleLP = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
-            tab.setLayoutParams(tp);
+            LinearLayout.LayoutParams platLP = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+            platLP.setMargins(0, 0, 4, 0);
+            tab.setLayoutParams(platLP);
             int idx = i;
             tab.setOnClickListener(v -> {
                 if (idx == 1) showDownloads();
