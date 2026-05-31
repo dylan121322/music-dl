@@ -134,15 +134,35 @@ def debug_play():
     songs = api.search("晴天", limit=3)
     results = []
     for song in songs[:2]:
-        for q in ["320kbps", "128kbps"]:
+        for q in ["320kbps"]:
             url = api.get_song_url(song.mid, q)
-            if url:
-                try:
-                    r = _req.head(url, timeout=5, headers={"User-Agent": "Mozilla/5.0"})
-                    results.append({"title": song.title, "q": q, "status": r.status_code, "type": r.headers.get("content-type","?"), "url": url[:120]})
-                except Exception as e:
-                    results.append({"title": song.title, "q": q, "err": str(e)[:80]})
+            if not url: continue
+            # Download the full audio and check
+            try:
+                r = _req.get(url, headers={
+                    "User-Agent": "Mozilla/5.0",
+                    "Referer": "https://y.qq.com",
+                    "Cookie": api.session.headers.get("Cookie", ""),
+                }, timeout=15, stream=True)
+                size = 0
+                header = b''
+                for chunk in r.iter_content(65536):
+                    header = chunk[:16]
+                    size += len(chunk)
+                    if size > 65536:
+                        break
+                hexhdr = header.hex() if header else 'none'
+                results.append({
+                    "title": song.title, "q": q,
+                    "status": r.status_code,
+                    "type": r.headers.get("content-type","?"),
+                    "size": size,
+                    "header": hexhdr,
+                    "url": url[:120]
+                })
                 break
+            except Exception as e:
+                results.append({"title": song.title, "q": q, "err": str(e)[:80]})
     return {"logged_in": bool(api.g_tk), "uin": api.uin, "results": results}
 
 
