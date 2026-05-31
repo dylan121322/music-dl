@@ -157,11 +157,18 @@ class MusicAPI:
         songtype = st_map.get(quality, 1)
 
         def _build_url(p, data):
-            # Use the real CDN server from vkey response (sip list), fallback to default
-            sip_list = data.get("sip", [])
-            srv = sip_list[0] if sip_list else data.get("server", "http://aqqmusic.tc.qq.com/")
+            # Use alternative CDN since aqqmusic.tc.qq.com is blocked on mobile networks
+            servers = ["http://sjy6.stream.qqmusic.qq.com/",
+                       "http://aqqmusic.tc.qq.com/",
+                       "http://stream.qqmusic.tc.qq.com/"]
+            srv = data.get("server", servers[0])
+            if not srv or "aqqmusic.tc.qq.com" in srv:
+                srv = servers[0]
             if not srv.endswith("/"):
                 srv += "/"
+            if ".m4a" in p.lower():
+                p = p.rsplit(".", 1)[0] + ".mp3"
+            return srv + p
             if ".m4a" in p.lower():
                 p = p.rsplit(".", 1)[0] + ".mp3"
             return srv + p
