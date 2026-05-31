@@ -1,4 +1,3 @@
-from typing import List
 """FastAPI server for Music DL — REST API + static frontend."""
 import sys
 import json
@@ -6,7 +5,7 @@ import asyncio
 import threading
 import queue
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 
 # Ensure project root is on sys.path for imports
 sys.path.insert(0, str(Path(__file__).parent))

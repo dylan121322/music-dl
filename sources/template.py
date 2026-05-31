@@ -1,6 +1,5 @@
-from typing import List
 """Template-based music source — configurable via JSON schema."""
-from typing import Optional
+from typing import Optional, List
 import json
 import re
 import requests

@@ -1,6 +1,5 @@
-from typing import List
 """NetEase Cloud Music (网易云音乐) download source with login support."""
-from typing import Optional
+from typing import Optional, List
 import requests
 from difflib import SequenceMatcher
 from sources.base import MusicSource, SearchResult

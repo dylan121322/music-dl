@@ -1,11 +1,11 @@
-from typing import List
 """Utility functions for QQ Music Downloader."""
+from typing import List, Optional
 import time
 import functools
 import json
 import logging
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 

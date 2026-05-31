@@ -1,7 +1,7 @@
 """Multi-threaded download engine with Rich progress bars."""
 import re
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Optional, List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import quote
 import requests

@@ -1,10 +1,9 @@
-from typing import List
 """Auto-discovery engine — crawl web pages to extract music data and test sources."""
+from typing import Optional, List
 import re
 import json
 import requests
 import urllib.parse
-from typing import Optional
 from pathlib import Path
 from sources.template import TemplateSource
 

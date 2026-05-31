@@ -1,8 +1,7 @@
-from typing import List
 """Base classes for music sources."""
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, List
 
 
 @dataclass

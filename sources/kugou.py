@@ -1,6 +1,5 @@
-from typing import List
 """KuGou (酷狗音乐) download source."""
-from typing import Optional
+from typing import Optional, List
 import requests
 from difflib import SequenceMatcher
 from sources.base import MusicSource, SearchResult

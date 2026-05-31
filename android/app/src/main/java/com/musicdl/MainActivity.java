@@ -87,37 +87,45 @@ public class MainActivity extends AppCompatActivity {
     private void initUI() {
         mainLayout = new LinearLayout(this);
         mainLayout.setOrientation(LinearLayout.VERTICAL);
-        mainLayout.setBackgroundColor(0xFF0a0a0f);
-        mainLayout.setPadding(16, 40, 16, 16);
+        mainLayout.setBackgroundColor(0xFF000000);
+        mainLayout.setPadding(20, 48, 20, 16);
 
-        // Title
+        // Title row
+        LinearLayout topRow = new LinearLayout(this);
+        topRow.setOrientation(LinearLayout.HORIZONTAL);
+        topRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
         TextView title = new TextView(this);
         title.setText("Music DL");
-        title.setTextColor(0xFFe8e8ed);
-        title.setTextSize(22);
-        title.setTypeface(null, Typeface.BOLD);
-        title.setPadding(0, 0, 0, 12);
-        mainLayout.addView(title);
-
-        // Status
+        title.setTextColor(0xFFFFFFFF);
+        title.setTextSize(26);
+        title.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+        title.setLayoutParams(tp);
+        topRow.addView(title);
         statusText = new TextView(this);
-        statusText.setText("● 启动中...");
+        statusText.setText("●");
         statusText.setTextColor(0xFFf59e0b);
-        statusText.setTextSize(13);
-        statusText.setPadding(0, 0, 0, 8);
-        mainLayout.addView(statusText);
+        statusText.setTextSize(11);
+        topRow.addView(statusText);
+        mainLayout.addView(topRow);
 
-        // Search bar
+        // Search bar — pill shaped with glass effect
         LinearLayout searchBar = new LinearLayout(this);
         searchBar.setOrientation(LinearLayout.HORIZONTAL);
+        searchBar.setPadding(0, 16, 0, 12);
         searchInput = new EditText(this);
         searchInput.setHint("搜索歌曲、歌手...");
-        searchInput.setHintTextColor(0xFF6b6f80);
-        searchInput.setTextColor(0xFFe8e8ed);
-        searchInput.setBackground(roundedBg(0xFF1a1d28, 28));
-        searchInput.setPadding(40, 28, 20, 28);
+        searchInput.setHintTextColor(0xFF555555);
+        searchInput.setTextColor(0xFFFFFFFF);
+        searchInput.setTextSize(15);
+        GradientDrawable pill = new GradientDrawable();
+        pill.setColor(0xFF111111);
+        pill.setCornerRadius(dp(30));
+        pill.setStroke(dp(1), 0xFF222222);
+        searchInput.setBackground(pill);
+        searchInput.setPadding(dp(24), dp(16), dp(16), dp(16));
         LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
-        sp.setMargins(0, 0, 8, 0);
+        sp.setMargins(0, 0, dp(10), 0);
         searchInput.setLayoutParams(sp);
         searchInput.addTextChangedListener(new TextWatcher() {
             public void afterTextChanged(Editable s) { doSearch(s.toString()); }
@@ -128,36 +136,51 @@ public class MainActivity extends AppCompatActivity {
 
         Button loginBtn = new Button(this);
         loginBtn.setText("🔑");
-        loginBtn.setTextColor(0xFFe8e8ed);
-        loginBtn.setBackground(roundedBg(0xFF1a1d28, 28));
+        loginBtn.setTextColor(0xFFFFFFFF);
+        loginBtn.setTextSize(16);
+        GradientDrawable loginBg = new GradientDrawable();
+        loginBg.setColor(0xFF111111);
+        loginBg.setCornerRadius(dp(30));
+        loginBg.setStroke(dp(1), 0xFF222222);
+        loginBtn.setBackground(loginBg);
+        loginBtn.setPadding(dp(16), dp(12), dp(16), dp(12));
         loginBtn.setOnClickListener(v -> showLoginDialog());
         searchBar.addView(loginBtn);
         mainLayout.addView(searchBar);
 
-        // Source chips
+        // Source chips — pill shaped, clean
         LinearLayout chips = new LinearLayout(this);
         chips.setOrientation(LinearLayout.HORIZONTAL);
+        chips.setPadding(0, 0, 0, dp(4));
         String[] sources = {"自动", "QQ", "网易云", "酷狗", "GitHub", "网页"};
         String[] srcKeys = {"auto", "qq", "netease", "kugou", "github", "web"};
         for (int i = 0; i < sources.length; i++) {
             Button chip = new Button(this);
             chip.setText(sources[i]);
             chip.setTextSize(11);
-            chip.setPadding(20, 10, 20, 10);
-            chip.setBackground(roundedBg(i == 0 ? 0xFF8b5cf6 : 0x001a1d28, 20));
-            chip.setTextColor(i == 0 ? 0xFFFFFFFF : 0xFF6b6f80);
+            chip.setPadding(dp(16), dp(8), dp(16), dp(8));
+            GradientDrawable cbg = new GradientDrawable();
+            cbg.setColor(i == 0 ? 0xFF8b5cf6 : 0x00000000);
+            cbg.setCornerRadius(dp(16));
+            if (i != 0) cbg.setStroke(dp(1), 0xFF222222);
+            chip.setBackground(cbg);
+            chip.setTextColor(i == 0 ? 0xFFFFFFFF : 0xFF777777);
             int idx = i;
             chip.setOnClickListener(v -> {
                 preferSource = srcKeys[idx];
                 for (int j = 0; j < chips.getChildCount(); j++) {
                     Button c = (Button) chips.getChildAt(j);
-                    c.setBackground(roundedBg(j == idx ? 0xFF8b5cf6 : 0x001a1d28, 20));
-                    c.setTextColor(j == idx ? 0xFFFFFFFF : 0xFF6b6f80);
+                    GradientDrawable g = new GradientDrawable();
+                    g.setColor(j == idx ? 0xFF8b5cf6 : 0x00000000);
+                    g.setCornerRadius(dp(16));
+                    if (j != idx) g.setStroke(dp(1), 0xFF222222);
+                    c.setBackground(g);
+                    c.setTextColor(j == idx ? 0xFFFFFFFF : 0xFF777777);
                 }
                 doSearch(searchInput.getText().toString());
             });
             LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            cp.setMargins(0, 0, 8, 0);
+            cp.setMargins(0, 0, dp(8), 0);
             chip.setLayoutParams(cp);
             chips.addView(chip);
         }
@@ -300,21 +323,48 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private View createSongCard(JSONObject s, int i) {
+        String primarySource = s.optString("source", "qq");
+        int accentColor = primarySource.equals("netease") ? 0xFFef4444 : primarySource.equals("kugou") ? 0xFF3b82f6 : 0xFF8b5cf6;
+
+        FrameLayout wrapper = new FrameLayout(this);
+        LinearLayout.LayoutParams wp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        wp.setMargins(0, 0, 0, dp(10));
+        wrapper.setLayoutParams(wp);
+
+        // Card background with subtle gradient
+        GradientDrawable cardBg = new GradientDrawable();
+        cardBg.setColor(0xFF0a0a0a);
+        cardBg.setCornerRadius(dp(16));
+        cardBg.setStroke(dp(1), 0xFF1a1a1a);
+        wrapper.setBackground(cardBg);
+
+        // Left accent strip
+        View accent = new View(this);
+        accent.setBackgroundColor(accentColor);
+        FrameLayout.LayoutParams ap = new FrameLayout.LayoutParams(dp(3), ViewGroup.LayoutParams.MATCH_PARENT);
+        ap.gravity = android.view.Gravity.LEFT;
+        GradientDrawable ag = new GradientDrawable();
+        ag.setColor(accentColor);
+        float[] corners = new float[]{dp(16), dp(16), 0, 0, 0, 0, dp(16), dp(16)};
+        ag.setCornerRadii(corners);
+        accent.setBackground(ag);
+        wrapper.addView(accent);
+
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.HORIZONTAL);
-        card.setBackground(roundedBg(0xFF12141c, 16));
-        card.setPadding(12, 12, 12, 12);
-        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        cp.setMargins(0, 0, 0, 8);
-        card.setLayoutParams(cp);
+        card.setPadding(dp(16), dp(14), dp(14), dp(14));
+        card.setGravity(android.view.Gravity.CENTER_VERTICAL);
 
-        // Play button
+        // Play button — large circle
         Button playBtn = new Button(this);
         playBtn.setText("▶");
-        playBtn.setTextColor(0xFFa78bfa);
-        playBtn.setTextSize(12);
-        playBtn.setBackground(roundedBg(0x201a1d28, 24));
-        playBtn.setPadding(16, 8, 16, 8);
+        playBtn.setTextColor(0xFFFFFFFF);
+        playBtn.setTextSize(14);
+        GradientDrawable pb = new GradientDrawable();
+        pb.setColor(accentColor);
+        pb.setCornerRadius(dp(24));
+        playBtn.setBackground(pb);
+        playBtn.setPadding(dp(18), dp(12), dp(18), dp(12));
         String mid = s.optString("qqmid", s.optString("mid"));
         String title = s.optString("title");
         String singer = s.optString("singer");
@@ -324,42 +374,57 @@ public class MainActivity extends AppCompatActivity {
         // Info
         LinearLayout info = new LinearLayout(this);
         info.setOrientation(LinearLayout.VERTICAL);
-        info.setPadding(12, 0, 0, 0);
+        info.setPadding(dp(14), 0, 0, 0);
         TextView tv = new TextView(this);
         tv.setText(title);
-        tv.setTextColor(0xFFe8e8ed);
+        tv.setTextColor(0xFFFFFFFF);
         tv.setTextSize(15);
-        tv.setTypeface(null, Typeface.BOLD);
+        tv.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        tv.setMaxLines(1);
+        tv.setEllipsize(android.text.TextUtils.TruncateAt.END);
         info.addView(tv);
         TextView sv = new TextView(this);
         sv.setText(singer + " · " + s.optString("duration_str"));
-        sv.setTextColor(0xFF6b6f80);
+        sv.setTextColor(0xFF777777);
         sv.setTextSize(12);
+        sv.setMaxLines(1);
+        sv.setEllipsize(android.text.TextUtils.TruncateAt.END);
         info.addView(sv);
 
-        // Source badges
+        // Source badges — micro pills
         JSONArray sources = s.optJSONArray("sources");
-        if (sources == null) { sources = new JSONArray(); sources.put(s.optString("source", "qq")); }
+        if (sources == null) { sources = new JSONArray(); sources.put(primarySource); }
         LinearLayout badges = new LinearLayout(this);
         badges.setOrientation(LinearLayout.HORIZONTAL);
         for (int j = 0; j < sources.length(); j++) {
             String src = sources.optString(j);
             TextView badge = new TextView(this);
             badge.setText(src);
-            badge.setTextSize(10);
-            badge.setTextColor(0xFFFFFFFF);
-            badge.setPadding(8, 3, 8, 3);
-            int color = src.equals("qq") ? 0xFF8b5cf6 : src.equals("netease") ? 0xFFef4444 : src.equals("kugou") ? 0xFF3b82f6 : 0xFF333333;
-            badge.setBackground(roundedBg(color, 4));
+            badge.setTextSize(9);
+            badge.setTextColor(src.equals("qq") ? 0xFFa78bfa : src.equals("netease") ? 0xFFf87171 : src.equals("kugou") ? 0xFF60a5fa : 0xFF777777);
+            badge.setPadding(dp(6), dp(2), dp(6), dp(2));
+            badge.setBackgroundColor(0x00000000);
             LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            bp.setMargins(0, 4, 4, 0);
+            bp.setMargins(0, dp(4), dp(4), 0);
             badge.setLayoutParams(bp);
             badges.addView(badge);
+        }
+        if (s.optBoolean("is_gray")) {
+            TextView vip = new TextView(this);
+            vip.setText("VIP");
+            vip.setTextSize(9);
+            vip.setTextColor(0xFFfbbf24);
+            vip.setPadding(dp(6), dp(2), dp(6), dp(2));
+            LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            vp.setMargins(0, dp(4), 0, 0);
+            vip.setLayoutParams(vp);
+            badges.addView(vip);
         }
         info.addView(badges);
         card.addView(info);
 
-        return card;
+        wrapper.addView(card);
+        return wrapper;
     }
 
     private void playSong(String mid, String title, String singer) {

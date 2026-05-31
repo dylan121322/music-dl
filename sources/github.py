@@ -1,6 +1,5 @@
-from typing import List
 """GitHub code search source — find mp3 files in public repositories."""
-from typing import Optional
+from typing import Optional, List
 import requests
 from sources.base import MusicSource, SearchResult
 
