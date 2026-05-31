@@ -357,10 +357,18 @@ public class MainActivity extends AppCompatActivity {
                 if (url.isEmpty()) { mainHandler.post(() -> toast("无法获取播放链接")); return; }
                 if (!url.startsWith("http")) { mainHandler.post(() -> toast("无效链接:" + url.substring(0,30))); return; }
                 currentPlayUrl = url;
-                String proxyUrl = "http://127.0.0.1:8765/api/stream?url=" + encode(url);
-                mainHandler.post(() -> {
-                    toast("开始播放...");
-                    playUrl(proxyUrl);
+                mainHandler.post(() -> toast("下载中..."));
+                // Download via cache, then play local file (MediaPlayer needs local file)
+                apiGet("/api/cache?url=" + encode(url), new Callback() {
+                    public void onResult(JSONObject cr) {
+                        String path = cr.optString("path", "");
+                        if (!path.isEmpty()) {
+                            mainHandler.post(() -> playFile(path));
+                        } else {
+                            mainHandler.post(() -> toast("下载失败"));
+                        }
+                    }
+                    public void onError(String e) { mainHandler.post(() -> toast("缓存失败: " + e)); }
                 });
             }
             public void onError(String e) { mainHandler.post(() -> toast("播放失败: " + (e != null ? e : "unknown"))); }
