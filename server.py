@@ -36,7 +36,8 @@ _state = {"api": None, "progress_queues": {}, "suspended": {}}
 def get_api():
     if _state["api"] is None:
         config = load_config(CONFIG_PATH)
-        _state["api"] = MusicAPI(cookie_str=config.get("cookie", ""))
+        cookie = get_account(config, "qq")
+        _state["api"] = MusicAPI(cookie_str=cookie)
     return _state["api"]
 
 
