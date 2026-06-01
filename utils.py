@@ -160,6 +160,26 @@ def save_config(config_path: Path, config: dict) -> None:
         json.dump(config, f, indent=2, ensure_ascii=False)
 
 
+def load_ai_config(config_path=None) -> Optional[dict]:
+    """Load AI config from user config file. Shared by downloader and sources.
+
+    Args:
+        config_path: Optional path to config file. Falls back to default.
+    """
+    if config_path is None:
+        config_path = Path.home() / ".config" / "music-dl" / "config.json"
+    try:
+        cfg = json.loads(config_path.read_text())
+        key = cfg.get("ai_key", "")
+        base_url = cfg.get("ai_base_url", "")
+        model = cfg.get("ai_model_name", "")
+        if key and base_url and model:
+            return {"model": model, "key": key, "base_url": base_url}
+    except Exception:
+        pass
+    return None
+
+
 def parse_numbers(user_input: str, max_val: int) -> List[int]:
     """Parse user selection input like '1,3,5' or 'a'/'all' into 0-indexed list."""
     raw = user_input.strip().lower()

@@ -44,7 +44,8 @@ def main():
     print(f"[launcher]   本机: {local_url}")
     print(f"[launcher]   局域网: {lan_url}")
 
-    threading.Thread(target=start_server, args=(host, port), daemon=True).start()
+    server_thread = threading.Thread(target=start_server, args=(host, port), daemon=True)
+    server_thread.start()
     time.sleep(1.5)
 
     try:

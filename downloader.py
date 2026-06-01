@@ -13,6 +13,7 @@ from rich.progress import (
 from models import Song
 from api import MusicAPI
 from sources import get_best_free
+from utils import load_ai_config
 
 console = Console()
 
@@ -303,7 +304,7 @@ def _search_duckduckgo(query: str) -> List[str]:
 
 def _ai_rank_urls(title: str, artist: str, urls: List[str]) -> List[str]:
     """Use AI to rank candidate URLs by likelihood of containing mp3 downloads."""
-    ai_config = _load_ai_config()
+    ai_config = load_ai_config()
     if not ai_config or len(urls) <= 3:
         return urls
 
@@ -430,7 +431,7 @@ def _probe_page_for_mp3(title: str, artist: str, page_url: str, use_ai: bool) ->
     if not use_ai and not findings:
         return None
 
-    ai_config = _load_ai_config()
+    ai_config = load_ai_config()
     if not ai_config:
         return None
 
@@ -512,23 +513,6 @@ def _resolve_download_url(url: str) -> Optional[str]:
         return final_url if 'http' in final_url else None
     except Exception:
         return None
-
-
-def _load_ai_config() -> Optional[dict]:
-    """Load AI config from user config file."""
-    import json as _json
-    from pathlib import Path as _Path
-    config_path = _Path.home() / ".config" / "music-dl" / "config.json"
-    try:
-        cfg = _json.loads(config_path.read_text())
-        key = cfg.get("ai_key", "")
-        base_url = cfg.get("ai_base_url", "")
-        model = cfg.get("ai_model_name", "")
-        if key and base_url and model:
-            return {"model": model, "key": key, "base_url": base_url}
-    except Exception:
-        pass
-    return None
 
 
 def print_summary(results: dict) -> None:

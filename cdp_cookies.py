@@ -55,10 +55,10 @@ def get_cookies_via_ws(port: int = CDP_PORT) -> Optional[str]:
 
 
 if __name__ == "__main__":
+    import sys
+    from pathlib import Path
     cookie = get_cookies_via_ws()
     if cookie:
-        from pathlib import Path
-        sys.path.insert(0, str(Path(__file__).parent))
         from utils import cookie_to_auth
         auth = cookie_to_auth(cookie)
         print(f"OK uin={auth['uin']}")

@@ -1,4 +1,3 @@
-from typing import List
 """AI-powered adaptive crawler — search web, visit pages, analyze, auto-adapt.
 
 Pipeline:
@@ -8,6 +7,7 @@ Pipeline:
   4. Generate extraction template (JSON path, CSS selectors, field names)
   5. Test the template -> register as a new music source if working
 """
+from typing import List
 import re
 import json
 import time
@@ -457,7 +457,7 @@ def discover_pipeline(
         if not page:
             continue
 
-        configs = analyze_page(page, ai_api, ai_key)
+        configs = analyze_page(page, ai_api, ai_key, base_url, ai_model)
         for cfg in configs:
             if cfg.get("confidence", 0) >= 0.5:
                 source = auto_adapt_source(page, cfg)

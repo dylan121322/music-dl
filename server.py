@@ -4,14 +4,16 @@ import json
 import asyncio
 import threading
 import queue
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional, Dict, List
 
 # Ensure project root is on sys.path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from api import MusicAPI
@@ -26,22 +28,40 @@ load_lx_sources()
 CONFIG_PATH = Path.home() / ".config" / "music-dl" / "config.json"
 STATIC_DIR = Path(__file__).parent / "static"
 
-app = FastAPI(title="Music DL")
 
-# ── Global state ──
-_state = {"api": None, "progress_queues": {}, "suspended": {}}
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup: initialize shared state; Shutdown: cleanup."""
+    app.state.api = None
+    app.state.progress_queues = {}
+    app.state.suspended = {}
+    yield
+    # Cleanup on shutdown
+    app.state.progress_queues.clear()
+    app.state.suspended.clear()
+
+
+app = FastAPI(title="Music DL", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://127.0.0.1:8765", "http://localhost:8765"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def get_api():
-    if _state["api"] is None:
+    if app.state.api is None:
         config = load_config(CONFIG_PATH)
         cookie = get_account(config, "qq")
-        _state["api"] = MusicAPI(cookie_str=cookie)
-    return _state["api"]
+        app.state.api = MusicAPI(cookie_str=cookie)
+    return app.state.api
 
 
 def reset_api(cookie_str: str = ""):
-    _state["api"] = MusicAPI(cookie_str=cookie_str)
+    app.state.api = MusicAPI(cookie_str=cookie_str)
 
 
 # ── Pydantic models ──
@@ -547,7 +567,7 @@ def api_login_suspend(platform: str = "qq"):
     cookie = get_account(config, platform)
     if not cookie:
         raise HTTPException(status_code=400, detail="No cookie to suspend")
-    _state["suspended"][platform] = cookie
+    app.state.suspended[platform] = cookie
     save_account(CONFIG_PATH, platform, "")
     if platform == "qq":
         reset_api("")
@@ -558,7 +578,7 @@ def api_login_suspend(platform: str = "qq"):
 @app.post("/api/login/restore")
 def api_login_restore(platform: str = "qq"):
     """Restore previously suspended cookies."""
-    cookie = _state["suspended"].pop(platform, "")
+    cookie = app.state.suspended.pop(platform, "")
     if not cookie:
         raise HTTPException(status_code=400, detail="No suspended cookie to restore")
     save_account(CONFIG_PATH, platform, cookie)
@@ -572,8 +592,8 @@ def api_login_restore(platform: str = "qq"):
 async def api_download_progress(task_id: str):
     """SSE endpoint for download progress."""
     import queue as _qmod
-    q = _state["progress_queues"].get(task_id) or _qmod.Queue()
-    _state["progress_queues"][task_id] = q
+    q = app.state.progress_queues.get(task_id) or _qmod.Queue()
+    app.state.progress_queues[task_id] = q
 
     async def event_stream():
         try:
@@ -589,7 +609,7 @@ async def api_download_progress(task_id: str):
                 except asyncio.TimeoutError:
                     yield f"data: {json.dumps({'type': 'ping'})}\n\n"
         finally:
-            _state["progress_queues"].pop(task_id, None)
+            app.state.progress_queues.pop(task_id, None)
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
@@ -611,10 +631,10 @@ def api_download(body: DownloadRequest):
 
     # Use a regular Queue to avoid asyncio event loop issues on some platforms
     import queue as _qmod
-    _state["progress_queues"][task_id] = _qmod.Queue()
+    app.state.progress_queues[task_id] = _qmod.Queue()
 
     def _run():
-        q = _state["progress_queues"].get(task_id)
+        q = app.state.progress_queues.get(task_id)
         if not q:
             return
 

@@ -459,10 +459,10 @@ def _extract_singer(singers: List[dict]) -> str:
 
 
 def _is_gray(item: dict) -> bool:
-    """Check if a song is 'gray' (unavailable/paywalled).
+    """Check if a song is 'gray' (unavailable/paywalled) in the raw API response.
 
-    Note: This only checks the raw API response. Callers that have auth (VIP login)
-    should pass authenticated=True to NOT mark paywalled songs as gray.
+    Note: Callers with auth (VIP login) pass is_gray=False on the Song object
+    directly rather than relying on this function's output.
     """
     pay = item.get("pay", {})
     if isinstance(pay, dict):
