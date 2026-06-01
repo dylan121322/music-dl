@@ -1,4 +1,7 @@
-"""Export runtime logs as JSON or raw text."""
+"""Export runtime logs as JSON or raw text.
+
+Reads all rotated log files (music-dl.log + .1/.2/.3 backups).
+"""
 import re
 import json
 from pathlib import Path
@@ -7,22 +10,44 @@ from typing import Optional, List, Dict, Union
 from logger import LOG_DIR
 
 LOG_FILE = LOG_DIR / "music-dl.log"
+LOG_GLOB = "music-dl.log*"
+
+
+def _read_all_lines(date: Optional[str] = None) -> List[str]:
+    """Read lines from all log files (current + rotated), optionally filtered by date."""
+    lines: List[str] = []
+    for log_path in sorted(LOG_DIR.glob(LOG_GLOB)):
+        try:
+            content = log_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for line in content.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            if date and not line.startswith(date):
+                continue
+            lines.append(line)
+    return lines
 
 
 def get_log_stats() -> dict:
-    """Return log statistics: total_lines, errors, warnings, file_size."""
-    stats = {"total_lines": 0, "errors": 0, "warnings": 0, "file_size_bytes": 0}
-    if not LOG_FILE.exists():
-        return stats
-    stats["file_size_bytes"] = LOG_FILE.stat().st_size
-    content = LOG_FILE.read_text(encoding="utf-8", errors="replace")
-    lines = content.strip().split("\n") if content.strip() else []
-    stats["total_lines"] = len(lines)
-    for line in lines:
-        if "[ERROR]" in line:
-            stats["errors"] += 1
-        elif "[WARNING]" in line:
-            stats["warnings"] += 1
+    """Return log statistics across all rotated log files."""
+    stats: Dict[str, int] = {"total_lines": 0, "errors": 0, "warnings": 0, "file_size_bytes": 0}
+    for log_path in LOG_DIR.glob(LOG_GLOB):
+        try:
+            stats["file_size_bytes"] += log_path.stat().st_size
+            for line in log_path.read_text(encoding="utf-8", errors="replace").split("\n"):
+                if not line.strip():
+                    continue
+                stats["total_lines"] += 1
+                level = _extract_level(line)
+                if level == "ERROR":
+                    stats["errors"] += 1
+                elif level == "WARNING":
+                    stats["warnings"] += 1
+        except OSError:
+            continue
     return stats
 
 
@@ -30,24 +55,19 @@ def export_logs(format: str = "json", date: Optional[str] = None) -> Union[List[
     """Export logs in JSON (list of parsed entries) or TXT (raw text).
 
     Args:
-        format: "json" or "txt"
+        format: "json" or "txt". Invalid formats default to json.
         date: ISO date string like "2026-06-01". If None, exports all logs.
     """
-    if not LOG_FILE.exists():
+    lines = _read_all_lines(date=date)
+
+    if not lines:
         return [] if format == "json" else ""
-
-    content = LOG_FILE.read_text(encoding="utf-8", errors="replace")
-    lines = content.strip().split("\n") if content.strip() else []
-
-    # Filter by date if specified
-    if date:
-        lines = [l for l in lines if l.startswith(date)]
 
     if format == "txt":
         return "\n".join(lines)
 
     # JSON format: parse each line into structured dict
-    entries = []
+    entries: List[dict] = []
     log_pattern = re.compile(
         r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[(\w+)\s*\] (\S+): (.*)$"
     )
@@ -63,3 +83,9 @@ def export_logs(format: str = "json", date: Optional[str] = None) -> Union[List[
         else:
             entries.append({"raw": line})
     return entries
+
+
+def _extract_level(line: str) -> Optional[str]:
+    """Extract log level from a formatted log line using the same regex as export."""
+    m = re.match(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \[(\w+)\s*\]", line)
+    return m.group(1) if m else None
