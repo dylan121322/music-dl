@@ -8,9 +8,11 @@ on macOS (WebKit), Windows (Edge WebView2), and Linux (GTK WebKit).
 import sys
 import time
 import threading
+import platform
 from pathlib import Path
-from logger import get_logger
+from logger import setup_logging, get_logger
 
+setup_logging()
 logger = get_logger("launcher")
 
 def get_static_dir() -> Path:
@@ -42,7 +44,7 @@ def main():
     except Exception:
         lan_url = local_url
 
-    logger.info("Music DL")
+    logger.info(f"Music DL v1.4.2 — {platform.system()} {platform.release()}")
     logger.info(f"本机: {local_url}")
     logger.info(f"局域网: {lan_url}")
 

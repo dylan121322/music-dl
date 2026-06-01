@@ -9,16 +9,23 @@ if SRC_DIR not in sys.path:
 
 
 def log(msg: str):
-    """Write to Android logcat."""
+    """Write to Android logcat and Python logger."""
     try:
         from android.util import Log
-        Log.i("Python", msg)
+        Log.i("MusicDL", msg)
     except Exception:
         print(msg, flush=True)
+    # Also write to file logger
+    try:
+        from logger import get_logger
+        get_logger("android").info(msg)
+    except Exception:
+        pass
 
 
 def run_server():
     try:
+        log("=== Music DL v1.4.2 Android ===")
         log("run_server() entered")
         import uvicorn
         log("uvicorn imported")
