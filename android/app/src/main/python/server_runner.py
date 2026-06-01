@@ -27,15 +27,24 @@ def run_server():
     try:
         log("=== Music DL v1.4.2 Android ===")
         log("run_server() entered")
+
+        # Android-specific paths
+        android_data = Path("/data/data/com.musicdl/files")
+        android_logs = android_data / "logs"
+        android_sdcard = Path("/sdcard/Music")
+        android_sdcard.mkdir(parents=True, exist_ok=True)
+        android_data.mkdir(parents=True, exist_ok=True)
+
+        # Override log directory BEFORE importing server (triggers setup_logging)
+        from logger import set_log_dir
+        set_log_dir(str(android_logs))
+        log(f"log dir: {android_logs}")
+
         import uvicorn
         log("uvicorn imported")
 
         import server
         log("server imported")
-
-        android_data = Path("/data/data/com.musicdl/files")
-        android_sdcard = Path("/sdcard/Music")
-        android_sdcard.mkdir(parents=True, exist_ok=True)
         log(f"sdcard: {android_sdcard}")
 
         server.STATIC_DIR = Path(SRC_DIR) / "static"

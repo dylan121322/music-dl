@@ -3,6 +3,9 @@
 Sets up root logger with:
 - RotatingFileHandler: DEBUG+ to ~/.config/music-dl/logs/music-dl.log (5MB x3)
 - StreamHandler: INFO+ to console (clean format, no timestamps)
+
+Call set_log_dir() before setup_logging() to override the default log path
+(e.g., on Android: /data/data/com.musicdl/files/logs/).
 """
 import logging
 import logging.handlers
@@ -15,6 +18,12 @@ BACKUP_COUNT: int = 3
 
 _initialized = False
 _lock = threading.Lock()
+
+
+def set_log_dir(path: str) -> None:
+    """Override the default log directory. Must be called before setup_logging()."""
+    global LOG_DIR
+    LOG_DIR = Path(path)
 
 
 def setup_logging(level: int = logging.DEBUG) -> None:
