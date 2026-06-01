@@ -21,6 +21,11 @@ from models import Song
 from downloader import Downloader
 from utils import load_config, save_config, QUALITY_MAP, cookie_to_auth, get_account, save_account, get_platform_status, PLATFORMS
 from sources import get_best_free, set_source_cookies, _netease_instance, _kugou_instance, _github_instance, load_lx_sources
+from logger import setup_logging, get_logger
+from exporter import export_logs, get_log_stats
+
+setup_logging()
+logger = get_logger("server")
 
 # Load LX Music sources on startup
 load_lx_sources()
@@ -719,6 +724,38 @@ def api_sources_status():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── Log management endpoints ──
+
+
+@app.get("/api/logs/status")
+def api_logs_status():
+    """Get log statistics."""
+    stats = get_log_stats()
+    return {
+        "total_lines": stats["total_lines"],
+        "errors": stats["errors"],
+        "warnings": stats["warnings"],
+        "file_size_bytes": stats["file_size_bytes"],
+        "file_size_mb": round(stats["file_size_bytes"] / (1024 * 1024), 2),
+    }
+
+
+@app.post("/api/logs/export")
+def api_logs_export(body: dict):
+    """Export logs. Body: {"format": "json"|"txt", "date": "2026-06-01" or null}."""
+    fmt = body.get("format", "json")
+    date = body.get("date")
+    if fmt not in ("json", "txt"):
+        raise HTTPException(status_code=400, detail="Format must be 'json' or 'txt'")
+
+    if fmt == "json":
+        return {"entries": export_logs(format="json", date=date)}
+    else:
+        from fastapi.responses import PlainTextResponse
+        content = export_logs(format="txt", date=date)
+        return PlainTextResponse(content=content, media_type="text/plain")
+
+
 # ── Serve static frontend ──
 
 
@@ -734,5 +771,5 @@ def serve_css():
 
 if __name__ == "__main__":
     import uvicorn
-    print(f"[server] Starting on http://127.0.0.1:8765")
+    logger.info("Starting Music DL on http://127.0.0.1:8765")
     uvicorn.run("server:app", host="127.0.0.1", port=8765, reload=False)
