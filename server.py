@@ -447,6 +447,60 @@ def api_playlist(body: PlaylistRequest):
     return {"songs": [_song_to_dict(s) for s in songs], "playlist_id": pid}
 
 
+@app.post("/api/link")
+def api_link_download(body: dict):
+    """Download audio from any URL. Phase 1: rule extraction, Phase 2: AI fallback.
+    Body: {"url": "https://...", "quality": "320kbps"}
+    """
+    url = body.get("url", "").strip()
+    quality = body.get("quality", "320kbps")
+
+    if not url:
+        raise HTTPException(status_code=400, detail="URL is required")
+    if not url.startswith("http"):
+        raise HTTPException(status_code=400, detail="Invalid URL")
+
+    from link_extractor import extract_audio_url
+    from utils import load_ai_config
+
+    ai_config = load_ai_config()
+    result = extract_audio_url(url, ai_config=ai_config)
+
+    if not result:
+        if not ai_config:
+            raise HTTPException(status_code=400,
+                detail="No audio found on this page. Configure AI for better results.")
+        raise HTTPException(status_code=400,
+            detail="No audio URL found on this page")
+
+    # Download to local
+    config = load_config(CONFIG_PATH)
+    save_dir = config.get("download_dir", str(Path.home() / "Music"))
+    dl = Downloader(
+        get_api(), save_dir, quality=quality, workers=1,
+        prefer_source="auto",
+    )
+    filepath = Path(save_dir) / result["title"]
+    if quality == "flac":
+        filepath = filepath.with_suffix(".flac")
+    elif quality == "128kbps":
+        filepath = filepath.with_suffix(".m4a")
+    else:
+        filepath = filepath.with_suffix(".mp3")
+
+    ok = dl._download_file(result["url"], filepath, result["title"])
+    if not ok:
+        raise HTTPException(status_code=400, detail="Download failed")
+
+    logger.info(f"Link download: {url} → {result['method']} → {filepath.name}")
+    return {
+        "ok": True,
+        "title": result["title"],
+        "method": result["method"],
+        "path": str(filepath),
+    }
+
+
 @app.post("/api/login/cookie")
 def api_login_cookie(body: CookieRequest):
     cookie = body.cookie.strip()

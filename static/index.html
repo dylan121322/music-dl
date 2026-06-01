@@ -34,6 +34,10 @@
     <input id="playlistUrl" placeholder="粘贴歌单链接..." style="font-size:0.8rem;padding:8px 12px">
     <button class="btn" onclick="getPlaylist()" style="width:auto;border-radius:20px;font-size:0.75rem;padding:6px 14px;margin-left:6px">获取歌单</button>
   </div>
+  <div style="margin-top:8px" id="linkRow">
+    <input id="linkUrl" placeholder="🔗 粘贴任意音乐链接，自动提取下载..." style="font-size:0.8rem;padding:8px 12px;flex:1">
+    <button class="btn" onclick="downloadLink()" style="width:auto;border-radius:20px;font-size:0.75rem;padding:6px 14px;margin-left:6px">链接下载</button>
+  </div>
 </div>
 
 <!-- QQ Login Hint -->
@@ -519,10 +523,28 @@ async function importLxSources(){
   }catch(e){el.innerHTML='加载失败'}
 }
 
+// ── Link Download ──
+async function downloadLink(){
+  const url=document.getElementById('linkUrl').value.trim();
+  if(!url){toast('请粘贴链接','err');return}
+  const area=document.getElementById('trackList');
+  area.innerHTML='<div class="empty-state"><div class="spinner"></div><p>分析链接中...</p></div>';
+  try{
+    const r=await fetch('/api/link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,quality:document.getElementById('qualitySelect').value})});
+    if(!r.ok){const e=await r.json();throw new Error(e.detail)}
+    const d=await r.json();
+    area.innerHTML=`<div class="empty-state"><div class="icon">✅</div><p>${esc(d.title)}</p><p style="font-size:0.75rem;color:var(--text-dim)">${d.method==='ai'?'🤖 AI':'📐 规则'}提取 · ${d.path}</p></div>`;
+    toast('下载完成: '+d.title,'ok');
+  }catch(e){
+    area.innerHTML=`<div class="empty-state"><div class="icon">❌</div><p>${esc(e.message)}</p></div>`;
+    toast(e.message,'err');
+  }
+}
 // ── Misc ──
 function toggleCollapse(id){document.getElementById(id).classList.toggle('open')}
 document.getElementById('aiModel').addEventListener('change',function(){document.getElementById('aiKeyGroup').style.display=this.value==='rule-based'?'none':'block';if(this.value==='deepseek'&&!document.getElementById('aiBaseUrl').value)document.getElementById('aiBaseUrl').value='https://api.deepseek.com'});
 document.getElementById('searchInput').addEventListener('keydown',function(e){if(e.key==='Enter')doSearch()});
+document.getElementById('linkUrl').addEventListener('keydown',function(e){if(e.key==='Enter')downloadLink()});
 </script>
 </body>
 </html>
