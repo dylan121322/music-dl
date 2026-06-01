@@ -1,12 +1,13 @@
 # Music DL
 
 多平台音乐下载工具 — 聚合搜索、歌单批量下载、多音源自动回退、AI 音源发现、网页搜索兜底。
-提供 Web GUI（FastAPI + 原生 JS），页面秒开无需等待。
+提供 Web GUI（FastAPI + 原生 JS）和 Android 原生 App（Java + Chaquopy）。
 
 ## 下载
 
 | 平台 | 下载 |
 |------|------|
+| Android APK | [app-debug.apk](https://github.com/dylan121322/music-dl/releases/tag/v1.4.2) |
 | macOS (Apple Silicon) | [MusicDL-macOS-arm64.zip](https://github.com/dylan121322/music-dl/releases/latest) |
 | Windows (x64) | [MusicDL-Windows-x64.zip](https://github.com/dylan121322/music-dl/releases/latest) |
 
@@ -21,13 +22,15 @@
 ## 功能
 
 - **聚合搜索**：同时搜索 QQ音乐 + 网易云 + 酷狗 + GitHub，结果去重合并，显示来源标签
-- **内置播放器**：点击歌曲 ▶ 按钮试听，底部播放条支持播放/暂停/拖拽进度
+- **Android 原生 App**：Material You 风格，AMOLED 纯黑 + 紫色点缀，大卡片 + 来源色条
+- **内置播放器**：Native MediaPlayer，音频焦点管理，拔出耳机自动暂停
 - **下载源选择**：自动 / QQ / 网易云 / 酷狗 / GitHub / 网页搜索
 - **多引擎网页搜索**：Bing + DuckDuckGo 并行搜索，AI 智能排序候选页面
 - **三层下载回退**：主音源 → 备选音源（精确歌名优先）→ 网页搜索（AI 辅助）
 - **AI 音源发现**：支持 DeepSeek / OpenAI / Claude，自动搜索 + 分析网页 + 注册新音源
 - **LX Music 兼容**：支持导入洛雪音乐 JS 音源（纯 Python 解析，无需 Node.js）
 - **FLAC 无损**：QQ音乐/网易云/酷狗均支持 FLAC 音质（需登录）
+- **运行时日志**：自动轮转日志文件（5MB×3），JSON/TXT 导出 API
 - 多平台登录：QQ 音乐 / 网易云 / 酷狗（标签切换，独立 Cookie）
 - Chrome CDP 一键自动提取 Cookie（含 HttpOnly）
 - 未登录自动回退到免费音源，不卡等待
@@ -57,21 +60,18 @@ pip install websocket-client cryptography
 
 ### Android
 
-**方式 A: APK（推荐）**
+**方式 A: APK 直接安装**
+从 [Releases](https://github.com/dylan121322/music-dl/releases) 下载最新 APK，直接安装。
+
+**方式 B: 自行构建**
 ```bash
 cd android
-bash build_apk.sh    # 需要 Android SDK + JDK 11+
-# APK 输出在 app/build/outputs/apk/release/
+# Windows: powershell -File build_full.ps1
+# macOS/Linux: bash build_apk.sh
+# 需要 Android SDK + JDK 17+ + Python 3.12
 ```
 
-**方式 B: Termux（无需 PC）**
-```bash
-curl -O https://raw.githubusercontent.com/dylan121322/music-dl/main/termux_setup.sh
-bash termux_setup.sh
-# 然后浏览器打开 http://127.0.0.1:8765
-```
-
-> APK 构建需要 [Android SDK](https://developer.android.com/studio) + JDK 11+。Termux 方式需先安装 [Termux](https://f-droid.org/packages/com.termux/)（F-Droid 版）。
+> APK 使用 Chaquopy 嵌入 Python 运行时，原生 Java UI（Material You 设计），支持音频焦点管理、耳机拔出检测、StrictMode 调试。
 
 ### 桌面端独立窗口（可选）
 
@@ -161,28 +161,39 @@ python main.py config --dir ~/Music
 
 ```
 music-dl/
-├── server.py           # FastAPI 后端 + 静态文件服务（Web 入口）
-├── launcher.py         # 打包入口（PyInstaller 构建用）
-├── static/             # 前端页面（原生 HTML/CSS/JS，零依赖）
-│   ├── index.html      # 单页应用（含多平台登录）
+├── server.py           # FastAPI 后端 + REST API（Web 入口）
+├── launcher.py         # 桌面窗口启动器（PyInstaller 构建用）
+├── logger.py           # 统一日志引擎（RotatingFileHandler, 5MB×3）
+├── exporter.py         # 日志导出（JSON/TXT/日期筛选）
+├── static/             # Web 前端（原生 HTML/CSS/JS，零依赖）
+│   ├── index.html      # 单页应用（多平台搜索 + 下载 + 播放）
 │   └── style.css       # 暗色主题
+├── android/            # Android App（Chaquopy Python-in-Android）
+│   └── app/src/main/java/com/musicdl/MainActivity.java  # 原生 Java UI
+├── tests/              # 测试套件（pytest + httpx）
+│   ├── conftest.py     # 测试 fixtures
+│   ├── test_api.py     # API 端点测试
+│   ├── test_utils.py   # 工具函数测试
+│   ├── test_logger.py  # 日志引擎测试
+│   └── test_exporter.py# 导出模块测试
+├── pyproject.toml      # Pytest 配置
 ├── .github/workflows/  # CI 自动构建（macOS + Windows）
-├── app.py              # [旧] Streamlit Web GUI
 ├── main.py             # CLI 入口
 ├── api.py              # QQ 音乐 API + CDP HTML 歌单提取
 ├── downloader.py       # 多线程下载引擎 + 3层回退
 ├── models.py           # Song 数据模型
-├── utils.py            # 工具函数、Cookie 解析、g_tk 计算
+├── utils.py            # 工具函数、Cookie 解析、g_tk 计算、AI 配置
 ├── cdp_cookies.py      # Chrome CDP Cookie 提取（含 HttpOnly）
 ├── login.py            # 二维码登录（QQ）
 ├── browser_login.py    # 浏览器 Cookie 读取 + Chrome Keychain 解密
-├── receiver.py         # 本地 HTTP 接收器
 ├── requirements.txt
 └── sources/            # 多音源系统
     ├── __init__.py     # 音源注册中心 + 回退逻辑
     ├── base.py         # MusicSource 抽象基类
     ├── netease.py      # 网易云音乐
     ├── kugou.py        # 酷狗音乐
+    ├── github.py       # GitHub 音源
+    ├── lx_adapter.py   # LX Music JS 音源适配器
     ├── template.py     # JSON 模板音源（零代码添加新源）
     ├── discovery.py    # 网页爬取 + 自动发现
     ├── ai_discovery.py # AI 发现引擎（搜索→访问→分析→注册）
@@ -246,12 +257,66 @@ music-dl/
 }
 ```
 
+## 运行时日志
+
+应用自动记录日志到 `~/.config/music-dl/logs/music-dl.log`，5MB 自动轮转，保留 3 个备份。
+
+```bash
+# 查看日志统计
+curl http://127.0.0.1:8765/api/logs/status
+
+# 导出今日 JSON
+curl -X POST http://127.0.0.1:8765/api/logs/export \
+  -H "Content-Type: application/json" \
+  -d '{"format":"json","date":"2026-06-01"}'
+
+# 导出全文 TXT
+curl -X POST http://127.0.0.1:8765/api/logs/export \
+  -H "Content-Type: application/json" \
+  -d '{"format":"txt"}'
+```
+
+## 测试
+
+```bash
+pip install pytest pytest-asyncio httpx
+pytest tests/ -v    # 42 tests
+```
+
 ## 依赖
 
-- Python 3.8+
+- Python 3.8+（Android 兼容）/ 桌面端 Python 3.10+
 - fastapi, uvicorn, requests, rich
 - websocket-client, cryptography
 - Google Chrome（CDP Cookie 提取需要）
+
+## API 参考
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/status` | GET | 登录状态、音质、下载目录 |
+| `/api/search` | POST | 聚合搜索 `{"keyword":"晴天","limit":20}` |
+| `/api/play` | POST | 获取播放链接 `{"mid":"xxx","quality":"320kbps"}` |
+| `/api/cache` | GET | 缓存音频到本地 `?url=...` |
+| `/api/stream` | GET | 流式播放 `?path=...` 或代理 `?url=...` |
+| `/api/download` | POST | 批量下载 `{"songs":[...],"quality":"320kbps"}` |
+| `/api/download/progress/{id}` | GET | SSE 下载进度 |
+| `/api/downloads` | GET | 已下载文件列表 |
+| `/api/favorites` | POST | 收藏列表（需登录） |
+| `/api/playlist` | POST | 歌单提取 `{"url":"..."}` |
+| `/api/login/cookie` | POST | Cookie 登录 `{"cookie":"...","platform":"qq"}` |
+| `/api/login/chrome` | POST | 打开 Chrome 登录页 `?platform=qq` |
+| `/api/login/cdp` | POST | CDP 提取 Cookie `?platform=qq` |
+| `/api/login/suspend` | POST | 暂停登录 `?platform=qq` |
+| `/api/login/restore` | POST | 恢复登录 `?platform=qq` |
+| `/api/logs/status` | GET | 日志统计（行数、错误数、文件大小） |
+| `/api/logs/export` | POST | 导出日志 `{"format":"json"\|"txt","date":"2026-06-01"}` |
+| `/api/sources/discover` | POST | AI 发现音源 |
+| `/api/sources/status` | GET | 音源可用性检测 |
+| `/api/sources/lx/import` | POST | 导入 LX 音源 |
+| `/api/config` | GET/POST | 配置读写 |
+| `/api/config/ai` | GET/POST | AI 配置读写 |
+| `/debug/play` | GET | 播放诊断 |
 
 ## 参考与致谢
 
