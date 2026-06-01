@@ -113,6 +113,11 @@ class AiConfigRequest(BaseModel):
     ai_base_url: str = ""
 
 
+class LinkRequest(BaseModel):
+    url: str
+    quality: str = "320kbps"
+
+
 class DiscoverRequest(BaseModel):
     ai_api: str = ""
     ai_key: str = ""
@@ -410,9 +415,18 @@ def api_stream(path: str = "", url: str = ""):
         except Exception:
             raise HTTPException(status_code=404, detail="Cannot proxy URL")
 
-    # Local file
+    # Local file — validate path is within allowed directories
     if path:
-        file_path = Path(path)
+        file_path = Path(path).resolve()
+        import tempfile
+        allowed_dirs = [
+            Path(save_dir).resolve() for save_dir in [
+                config.get("download_dir", str(Path.home() / "Music")),
+                str(Path(tempfile.gettempdir()) / "musicdl_cache"),
+            ]
+        ]
+        if not any(str(file_path).startswith(str(d)) for d in allowed_dirs):
+            raise HTTPException(status_code=403, detail="Access denied")
         if not file_path.exists() or not file_path.is_file():
             raise HTTPException(status_code=404, detail="File not found")
         return FileResponse(file_path, media_type="audio/mpeg")
@@ -448,12 +462,10 @@ def api_playlist(body: PlaylistRequest):
 
 
 @app.post("/api/link")
-def api_link_download(body: dict):
-    """Download audio from any URL. Phase 1: rule extraction, Phase 2: AI fallback.
-    Body: {"url": "https://...", "quality": "320kbps"}
-    """
-    url = body.get("url", "").strip()
-    quality = body.get("quality", "320kbps")
+def api_link_download(body: LinkRequest):
+    """Download audio from any URL. Phase 1: rule extraction, Phase 2: AI fallback."""
+    url = body.url.strip()
+    quality = body.quality
 
     if not url:
         raise HTTPException(status_code=400, detail="URL is required")
@@ -464,7 +476,10 @@ def api_link_download(body: dict):
     from utils import load_ai_config
 
     ai_config = load_ai_config()
-    result = extract_audio_url(url, ai_config=ai_config)
+    try:
+        result = extract_audio_url(url, ai_config=ai_config)
+    except ConnectionError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     if not result:
         if not ai_config:
@@ -480,16 +495,9 @@ def api_link_download(body: dict):
         get_api(), save_dir, quality=quality, workers=1,
         prefer_source="auto",
     )
-    filepath = Path(save_dir) / result["title"]
-    if quality == "flac":
-        filepath = filepath.with_suffix(".flac")
-    elif quality == "128kbps":
-        filepath = filepath.with_suffix(".m4a")
-    else:
-        filepath = filepath.with_suffix(".mp3")
+    filepath = dl.download_url(result["url"], result["title"], quality)
 
-    ok = dl._download_file(result["url"], filepath, result["title"])
-    if not ok:
+    if not filepath:
         raise HTTPException(status_code=400, detail="Download failed")
 
     logger.info(f"Link download: {url} → {result['method']} → {filepath.name}")

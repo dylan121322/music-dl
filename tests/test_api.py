@@ -115,3 +115,20 @@ class TestPlay:
     async def test_play_missing_mid(self, client: AsyncClient):
         response = await client.post("/api/play", json={})
         assert response.status_code == 400
+
+
+@pytest.mark.anyio
+class TestLink:
+    """Tests for /api/link endpoint."""
+
+    async def test_link_missing_url(self, client: AsyncClient):
+        response = await client.post("/api/link", json={})
+        assert response.status_code == 422  # Pydantic validation
+
+    async def test_link_empty_url(self, client: AsyncClient):
+        response = await client.post("/api/link", json={"url": ""})
+        assert response.status_code == 400
+
+    async def test_link_invalid_url(self, client: AsyncClient):
+        response = await client.post("/api/link", json={"url": "not-a-url"})
+        assert response.status_code == 400

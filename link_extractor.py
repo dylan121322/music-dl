@@ -30,6 +30,7 @@ def extract_audio_url(url: str, ai_config: Optional[dict] = None) -> Optional[di
         ai_config: Optional {'model', 'key', 'base_url'} for AI fallback
 
     Returns: {'url': str, 'title': str, 'method': 'direct'|'rule'|'ai'} or None
+    Raises: ConnectionError if page is unreachable
     """
     if not url or not url.startswith("http"):
         return None
@@ -49,8 +50,8 @@ def extract_audio_url(url: str, ai_config: Optional[dict] = None) -> Optional[di
             "Accept": "text/html,application/json,*/*",
             "Accept-Language": "zh-CN,zh;q=0.9",
         }, timeout=TIMEOUT, allow_redirects=True)
-    except Exception:
-        return None
+    except requests.RequestException as e:
+        raise ConnectionError(f"Cannot reach URL: {e}")
 
     html = resp.text
     final_url = resp.url
@@ -71,14 +72,11 @@ def extract_audio_url(url: str, ai_config: Optional[dict] = None) -> Optional[di
 
 def _filename_from_url(url: str) -> str:
     """Extract a human-readable filename from a URL."""
+    from urllib.parse import unquote
     name = url.rsplit("/", 1)[-1].split("?")[0]
-    # URL decode
-    try:
-        from urllib.parse import unquote
-        name = unquote(name)
-    except Exception:
-        pass
-    return name.rsplit(".", 1)[0] if "." in name else name
+    name = unquote(name)
+    result = name.rsplit(".", 1)[0] if "." in name else name
+    return result or "untitled"
 
 
 def _rule_extract(html: str, base_url: str) -> Optional[dict]:
@@ -208,15 +206,16 @@ Page content:
                     "title": _filename_from_url(found_url),
                     "method": "ai",
                 }
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.getLogger("link_extractor").warning(f"AI extraction failed: {e}")
     return None
 
 
 def _validate_url(url: str) -> bool:
     """Check if URL is reachable and returns audio content."""
     try:
-        r = requests.head(url, headers={"User-Agent": USER_AGENT}, timeout=5)
+        r = requests.get(url, headers={"User-Agent": USER_AGENT, "Range": "bytes=0-0"}, timeout=5)
         return r.status_code in (200, 206, 302)
     except Exception:
         return False

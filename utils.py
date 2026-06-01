@@ -92,7 +92,7 @@ def cookie_to_auth(cookie_str: str) -> Optional[dict]:
     cookies = parse_cookie_string(cookie_str)
 
     # Try QQ login uin first, then WeChat wxuin
-    uin = cookies.get("uin", "").replace("o", "").replace("O", "")
+    uin = cookies.get("uin", "").lstrip("oO")
     if not uin:
         uin = cookies.get("wxuin", "").replace("o", "").replace("O", "")
     if not uin:

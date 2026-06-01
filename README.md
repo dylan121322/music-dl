@@ -30,6 +30,7 @@
 - **AI 音源发现**：支持 DeepSeek / OpenAI / Claude，自动搜索 + 分析网页 + 注册新音源
 - **LX Music 兼容**：支持导入洛雪音乐 JS 音源（纯 Python 解析，无需 Node.js）
 - **FLAC 无损**：QQ音乐/网易云/酷狗均支持 FLAC 音质（需登录）
+- **链接下载**：粘贴任意音乐链接，规则 + AI 两级提取音频 URL，自动下载
 - **运行时日志**：自动轮转日志文件（5MB×3），JSON/TXT 导出 API
 - 多平台登录：QQ 音乐 / 网易云 / 酷狗（标签切换，独立 Cookie）
 - Chrome CDP 一键自动提取 Cookie（含 HttpOnly）
@@ -165,6 +166,7 @@ music-dl/
 ├── launcher.py         # 桌面窗口启动器（PyInstaller 构建用）
 ├── logger.py           # 统一日志引擎（RotatingFileHandler, 5MB×3）
 ├── exporter.py         # 日志导出（JSON/TXT/日期筛选）
+├── link_extractor.py   # 链接音频提取（规则 + AI 两级）
 ├── static/             # Web 前端（原生 HTML/CSS/JS，零依赖）
 │   ├── index.html      # 单页应用（多平台搜索 + 下载 + 播放）
 │   └── style.css       # 暗色主题
@@ -280,7 +282,7 @@ curl -X POST http://127.0.0.1:8765/api/logs/export \
 
 ```bash
 pip install pytest pytest-asyncio httpx
-pytest tests/ -v    # 42 tests
+pytest tests/ -v    # 65 tests
 ```
 
 ## 依赖
@@ -304,6 +306,7 @@ pytest tests/ -v    # 42 tests
 | `/api/downloads` | GET | 已下载文件列表 |
 | `/api/favorites` | POST | 收藏列表（需登录） |
 | `/api/playlist` | POST | 歌单提取 `{"url":"..."}` |
+| `/api/link` | POST | 链接下载 `{"url":"...","quality":"320kbps"}` |
 | `/api/login/cookie` | POST | Cookie 登录 `{"cookie":"...","platform":"qq"}` |
 | `/api/login/chrome` | POST | 打开 Chrome 登录页 `?platform=qq` |
 | `/api/login/cdp` | POST | CDP 提取 Cookie `?platform=qq` |

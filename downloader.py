@@ -88,6 +88,14 @@ class Downloader:
         self.progress(f"跳过：{reason}")
         return False
 
+    def download_url(self, url: str, title: str, quality: str = "320kbps") -> Optional[Path]:
+        """Download a single audio URL. Returns the file path on success, None on failure."""
+        self.save_dir.mkdir(parents=True, exist_ok=True)
+        ext = {"128kbps": ".m4a", "320kbps": ".mp3", "flac": ".flac"}.get(quality, ".mp3")
+        filepath = self.save_dir / (title + ext)
+        ok = self._download_file(url, filepath, title)
+        return filepath if ok else None
+
     def _download_file(self, url: str, filepath: Path, label: str) -> bool:
         """Stream download a single file to disk. Returns True on success."""
         headers = {
