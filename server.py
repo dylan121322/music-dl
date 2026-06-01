@@ -417,13 +417,12 @@ def api_stream(path: str = "", url: str = ""):
 
     # Local file — validate path is within allowed directories
     if path:
+        from tempfile import gettempdir
+        config = load_config(CONFIG_PATH)
         file_path = Path(path).resolve()
-        import tempfile
         allowed_dirs = [
-            Path(save_dir).resolve() for save_dir in [
-                config.get("download_dir", str(Path.home() / "Music")),
-                str(Path(tempfile.gettempdir()) / "musicdl_cache"),
-            ]
+            Path(config.get("download_dir", str(Path.home() / "Music"))).resolve(),
+            Path(gettempdir()).resolve() / "musicdl_cache",
         ]
         if not any(str(file_path).startswith(str(d)) for d in allowed_dirs):
             raise HTTPException(status_code=403, detail="Access denied")

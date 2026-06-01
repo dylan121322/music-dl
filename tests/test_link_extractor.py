@@ -24,6 +24,12 @@ class TestFilenameFromUrl:
         name = _filename_from_url("https://example.com/%E6%99%B4%E5%A4%A9.mp3")
         assert "晴" in name
 
+    def test_path_traversal_blocked(self):
+        name = _filename_from_url("https://example.com/..%2F..%2Fetc%2Fpasswd.mp3")
+        assert ".." not in name
+        assert "/" not in name
+        assert name == "passwd"
+
 
 class TestRuleExtract:
     def test_direct_mp3(self):

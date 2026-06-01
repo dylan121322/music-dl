@@ -71,12 +71,14 @@ def extract_audio_url(url: str, ai_config: Optional[dict] = None) -> Optional[di
 
 
 def _filename_from_url(url: str) -> str:
-    """Extract a human-readable filename from a URL."""
+    """Extract a safe human-readable filename from a URL."""
     from urllib.parse import unquote
     name = url.rsplit("/", 1)[-1].split("?")[0]
     name = unquote(name)
-    result = name.rsplit(".", 1)[0] if "." in name else name
-    return result or "untitled"
+    name = name.rsplit(".", 1)[0] if "." in name else name
+    # Sanitize: strip path traversal and keep only the base filename
+    name = name.replace("\\", "/").rsplit("/", 1)[-1]
+    return name or "untitled"
 
 
 def _rule_extract(html: str, base_url: str) -> Optional[dict]:
