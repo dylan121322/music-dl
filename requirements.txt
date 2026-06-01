@@ -1,0 +1,4 @@
+requests>=2.31
+rich>=13.0
+fastapi>=0.110
+uvicorn[standard]>=0.29
