@@ -14,8 +14,10 @@ from models import Song
 from api import MusicAPI
 from sources import get_best_free
 from utils import load_ai_config
+from logger import get_logger
 
 console = Console()
+logger = get_logger("downloader")
 
 
 class Downloader:
@@ -40,7 +42,7 @@ class Downloader:
             self.progress("网页搜索模式：直接搜索 mp3 链接...")
             web_url = _search_web_for_song(song.title, song.singer)
             if web_url:
-                console.print(f"[green]Found on web: {web_url[:80]}...[/green]")
+                logger.info(f"Found on web: {web_url[:80]}...")
                 filepath = self.save_dir / song.filename
                 self.progress("网页搜索找到链接，开始下载...")
                 return self._download_file(web_url, filepath, song.title)
@@ -62,7 +64,7 @@ class Downloader:
         self.progress(f"正在搜索备选音源 ({'优先: ' + self.prefer_source if self.prefer_source != 'auto' else '自动'})...")
         alt = get_best_free(song.title, song.singer, prefer_source=self.prefer_source)
         if alt and alt.download_url:
-            console.print(f"[cyan]Found on {alt.source}: '{alt.title}' - {alt.artist} (free)[/cyan]")
+            logger.info(f"Found on {alt.source}: '{alt.title}' - {alt.artist} (free)")
             filepath = self.save_dir / song.filename
             self.progress(f"找到 {alt.source} 免费链接，开始下载...")
             return self._download_file(alt.download_url, filepath, alt.title)
@@ -75,14 +77,14 @@ class Downloader:
         self.progress("最后手段：网页搜索 mp3 链接...")
         web_url = _search_web_for_song(song.title, song.singer)
         if web_url:
-            console.print(f"[green]Found on web: {web_url[:80]}...[/green]")
+            logger.info(f"Found on web: {web_url[:80]}...")
             filepath = self.save_dir / song.filename
             self.progress("网页搜索找到链接，开始下载...")
             return self._download_file(web_url, filepath, song.title)
         self.progress("网页搜索也未找到")
 
         reason = "VIP (no free alt found)" if song.is_gray else "could not resolve play URL"
-        console.print(f"[yellow]Skipping '{song.title}' — {reason}.[/yellow]")
+        logger.warning(f"Skipping '{song.title}' — {reason}.")
         self.progress(f"跳过：{reason}")
         return False
 
@@ -108,7 +110,7 @@ class Downloader:
                         downloaded += len(chunk)
             return True
         except Exception as e:
-            console.print(f"[red]Download failed '{label}': {e}[/red]")
+            logger.error(f"Download failed '{label}': {e}")
             if filepath.exists():
                 filepath.unlink()
             return False
@@ -120,9 +122,9 @@ class Downloader:
         downloadable = [s for s in songs if not s.is_gray or self.api.g_tk]
         gray_count = sum(1 for s in songs if s.is_gray)
         if gray_count and self.api.g_tk:
-            console.print(f"[dim]{gray_count} VIP song(s) — attempting with cookie.[/dim]")
+            logger.debug(f"{gray_count} VIP song(s) — attempting with cookie.")
         elif gray_count:
-            console.print(f"[dim]{gray_count} VIP song(s) — skipped (no cookie set).[/dim]")
+            logger.debug(f"{gray_count} VIP song(s) — skipped (no cookie set).")
 
         if not downloadable:
             return results
@@ -142,14 +144,14 @@ class Downloader:
                     # Resolve URL first, then submit download
                     url = self.api.get_song_url(song.mid, self.quality)
                     if not url:
-                        console.print(f"[yellow]No URL: {song.title}[/yellow]")
+                        logger.warning(f"No URL: {song.title}")
                         results["skipped"] += 1
                         continue
                     song.url = url
                     filepath = self.save_dir / song.filename
 
                     if filepath.exists():
-                        console.print(f"[dim]Already exists: {song.title}[/dim]")
+                        logger.debug(f"Already exists: {song.title}")
                         results["succeeded"] += 1
                         continue
 
@@ -166,12 +168,12 @@ class Downloader:
                         ok = future.result()
                         if ok:
                             results["succeeded"] += 1
-                            progress.console.print(f"[green]Succeeded {title}[/green]")
+                            logger.info(f"Succeeded {title}")
                         else:
                             results["failed"] += 1
                     except Exception as e:
                         results["failed"] += 1
-                        progress.console.print(f"[red]Failed {title}: {e}[/red]")
+                        logger.error(f"Failed {title}: {e}")
 
         return results
 
@@ -518,4 +520,4 @@ def _resolve_download_url(url: str) -> Optional[str]:
 def print_summary(results: dict) -> None:
     """Print a colored download summary."""
     s, f, k = results["succeeded"], results["failed"], results["skipped"]
-    console.print(f"\n[bold]Done:[/bold] [green]{s} succeeded[/green] | [red]{f} failed[/red] | [yellow]{k} skipped[/yellow]")
+    logger.info(f"Done: {s} succeeded | {f} failed | {k} skipped")

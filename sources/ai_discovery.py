@@ -12,14 +12,14 @@ import re
 import json
 import time
 import hashlib
-import logging
 from typing import Optional, Callable
+from logger import get_logger
 from pathlib import Path
 from urllib.parse import quote, urljoin
 
 import requests
 
-logger = logging.getLogger(__name__)
+logger = get_logger("ai_discovery")
 
 USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
               "AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36")

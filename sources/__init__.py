@@ -1,6 +1,10 @@
 """Multi-source music download with auto-discovery + AI engine."""
 from typing import Optional, List, Dict
 from pathlib import Path as _Path
+from logger import get_logger
+
+logger = get_logger("sources")
+
 from sources.base import MusicSource, SearchResult
 from sources.netease import NeteaseSource
 from sources.kugou import KugouSource

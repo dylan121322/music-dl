@@ -3,15 +3,15 @@ import sys
 import time
 import uuid
 import re
-import logging
 import requests
+from logger import get_logger
 from typing import List, Optional
 from models import Song
 
 # Ensure /tmp/pylib is available for websocket-client
 sys.path.insert(0, "/tmp/pylib")
 
-logger = logging.getLogger(__name__)
+logger = get_logger("api")
 
 BASE_URL = "https://c.y.qq.com"
 USER_AGENT = (

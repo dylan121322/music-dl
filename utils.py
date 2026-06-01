@@ -3,11 +3,11 @@ from typing import List, Optional
 import time
 import functools
 import json
-import logging
 from pathlib import Path
+from logger import get_logger
 from typing import Callable
 
-logger = logging.getLogger(__name__)
+logger = get_logger("utils")
 
 QUALITY_MAP = {
     "128kbps": {"label": "lq", "desc": "128kbps M4A"},

@@ -9,7 +9,9 @@ import sys
 import time
 import threading
 from pathlib import Path
+from logger import get_logger
 
+logger = get_logger("launcher")
 
 def get_static_dir() -> Path:
     if getattr(sys, 'frozen', False):
@@ -40,9 +42,9 @@ def main():
     except Exception:
         lan_url = local_url
 
-    print(f"[launcher] Music DL")
-    print(f"[launcher]   本机: {local_url}")
-    print(f"[launcher]   局域网: {lan_url}")
+    logger.info("Music DL")
+    logger.info(f"本机: {local_url}")
+    logger.info(f"局域网: {lan_url}")
 
     server_thread = threading.Thread(target=start_server, args=(host, port), daemon=True)
     server_thread.start()
