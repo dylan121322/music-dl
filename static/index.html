@@ -171,7 +171,6 @@ let status = {};
 let currentPlatform = 'qq';
 let preferSource = 'auto';
 let suspended = false;
-
 // ── Init ──
 async function init() {
   try {
@@ -427,8 +426,6 @@ async function refreshStatus() {
   } catch(e) {}
   renderStatus();
 }
-
-let suspended = false;
 
 async function doLogout() {
   if (!confirm('确认退出登录？将永久清除当前平台的 Cookie。')) return;
