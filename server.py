@@ -258,41 +258,49 @@ def api_save_config(body: ConfigUpdateRequest):
 def api_search(body: SearchRequest):
     from concurrent.futures import ThreadPoolExecutor, as_completed
     import re as _re
+    import threading
 
     DURATION_TOLERANCE = 3  # seconds — same song across platforms may differ slightly
 
     def _norm(s: str) -> str:
         """Normalize title/singer for fuzzy matching: lowercase, strip punctuation."""
+        if not s:
+            return ""
         s = _re.sub(r'[（(].*?[)）]', '', s)  # remove parenthesized notes
         s = _re.sub(r'[^\w\s]', '', s)        # strip punctuation
         return s.lower().strip()
 
     def _make_key(title: str, singer: str, duration: int) -> str:
         """Create a dedup key from normalized title + singer + binned duration."""
-        t = _norm(title)
-        s = _norm(singer)
-        # Bin duration to nearest tolerance to handle 1-2s differences
-        dur_bin = (duration // DURATION_TOLERANCE) * DURATION_TOLERANCE if duration else 0
+        t = _norm(title or "")
+        s = _norm(singer or "")
+        # Round to nearest bin (floor-based bin straddles boundaries)
+        dur_bin = round(duration / DURATION_TOLERANCE) * DURATION_TOLERANCE if duration else 0
         return f"{t}|{s}|{dur_bin}"
 
     # keyed by fuzzy match, merges same song across platforms
     merged: Dict[str, dict] = {}
+    _lock = threading.Lock()
 
     def _insert(key: str, entry: dict, source: str):
-        if key in merged:
-            merged[key]["sources"].append(source)
-            # Upgrade: use the longer title, and the QQ mid if available
-            if len(entry["title"]) > len(merged[key]["title"]):
-                merged[key]["title"] = entry["title"]
-            if source == "qq":
-                merged[key]["qqmid"] = entry.get("mid", "")
-            if not entry["is_gray"]:
-                merged[key]["is_gray"] = False
-        else:
-            entry["sources"] = [source]
-            if source == "qq":
-                entry["qqmid"] = entry.get("mid", "")
-            merged[key] = entry
+        """Thread-safe insert with intelligent merge."""
+        with _lock:
+            if key in merged:
+                m = merged[key]
+                if source not in m["sources"]:
+                    m["sources"].append(source)
+                # Prefer longer title, keep first QQ mid
+                if len(entry["title"]) > len(m["title"]):
+                    m["title"] = entry["title"]
+                if source == "qq" and "qqmid" not in m:
+                    m["qqmid"] = entry.get("mid", "")
+                if not entry["is_gray"]:
+                    m["is_gray"] = False
+            else:
+                entry["sources"] = [source]
+                if source == "qq":
+                    entry["qqmid"] = entry.get("mid", "")
+                merged[key] = entry
 
     def add_qq():
         api = get_api()
