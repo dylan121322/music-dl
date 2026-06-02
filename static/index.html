@@ -15,24 +15,28 @@
   <!-- Login -->
   <div class="section" id="loginSection">
     <div class="section-title">🔑 登录</div>
+    <div class="platform-tabs" id="platformTabs">
+      <button class="plat-tab active" data-platform="qq" onclick="switchPlatform('qq')">QQ</button>
+      <button class="plat-tab" data-platform="netease" onclick="switchPlatform('netease')">网易云</button>
+      <button class="plat-tab" data-platform="kugou" onclick="switchPlatform('kugou')">酷狗</button>
+    </div>
     <div id="loginStatus" style="margin-bottom:8px;font-size:0.82rem;">
       <span class="badge badge-warn">未登录</span>
     </div>
     <div class="row" style="margin-bottom:6px;">
-      <button class="btn btn-outline btn-sm btn-block" onclick="openChrome()" title="打开Chrome并扫码登录">打开Chrome</button>
-      <button class="btn btn-primary btn-sm btn-block" onclick="extractCookies()" title="从Chrome提取Cookie">提取Cookie</button>
+      <button class="btn btn-outline btn-sm btn-block" onclick="openChrome()">打开Chrome</button>
+      <button class="btn btn-primary btn-sm btn-block" onclick="extractCookies()">提取Cookie</button>
+    </div>
+    <div class="row" style="margin-bottom:6px;">
+      <button class="btn btn-sm" id="suspendBtn" onclick="toggleSuspend()" style="font-size:0.75rem;flex:1;display:none;background:var(--bg-input);color:var(--text-dim);">⏸ 暂停</button>
+      <button class="btn btn-sm" id="logoutBtn" onclick="doLogout()" style="font-size:0.75rem;flex:1;display:none;background:var(--bg-input);color:var(--text-dim);">退出</button>
     </div>
 
     <div class="collapse-header" onclick="toggleCollapse('manualLogin')">
-      手动输入 ▾
+      手动输入 Cookie ▾
     </div>
     <div id="manualLogin" class="collapse-body">
-      <div class="row" style="margin-top:6px;">
-        <input id="uinInput" placeholder="uin / wxuin (QQ号)" style="flex:1">
-      </div>
-      <div class="row" style="margin-top:4px;">
-        <input id="keyInput" placeholder="qqmusic_key / qm_keyst" type="password" style="flex:1">
-      </div>
+      <textarea id="cookieInput" placeholder="粘贴完整 Cookie 字符串..." style="margin-top:4px;height:60px;font-size:0.75rem;"></textarea>
       <div class="row" style="margin-top:6px;">
         <button class="btn btn-outline btn-sm" onclick="manualLogin()">登录</button>
         <button class="btn btn-danger btn-sm" onclick="clearLogin()">清除</button>
@@ -67,15 +71,19 @@
     <div class="section-title">🤖 AI 发现音源</div>
     <select id="aiModel" style="margin-bottom:6px;">
       <option value="rule-based">rule-based (免费)</option>
+      <option value="deepseek">DeepSeek (V4 Flash)</option>
       <option value="openai">OpenAI (gpt-4o-mini)</option>
       <option value="claude">Claude (haiku)</option>
     </select>
     <div id="aiKeyGroup" style="display:none;">
+      <input id="aiModelName" placeholder="模型名称，如 deepseek-chat" style="margin-bottom:6px;">
       <input id="aiKey" placeholder="API Key" type="password" style="margin-bottom:6px;">
       <input id="aiBaseUrl" placeholder="Base URL" style="margin-bottom:6px;">
     </div>
     <button class="btn btn-outline btn-sm btn-block" onclick="discoverSources()">开始搜索音源</button>
     <button class="btn btn-outline btn-sm btn-block" onclick="checkSources()">查看音源状态</button>
+    <button class="btn btn-outline btn-sm btn-block" onclick="saveAiConfig()">保存 AI 配置</button>
+    <button class="btn btn-outline btn-sm btn-block" onclick="importLxSources()">导入 LX 音源</button>
     <div id="sourceResult" style="margin-top:8px;font-size:0.78rem;"></div>
   </div>
 
@@ -87,11 +95,21 @@
 <!-- Main -->
 <main class="main">
   <h1>Music DL</h1>
-  <p class="subtitle">多平台音乐下载 — 搜索 → 勾选 → 下载</p>
+  <p class="subtitle">搜索歌曲 → 勾选 → 一键下载</p>
+
+  <div class="action-row">
+    <input id="linkUrl" placeholder="🔗 粘贴链接直接下载..." style="flex:1;padding:6px 10px;font-size:0.8rem;">
+    <button class="btn btn-outline btn-sm" onclick="downloadLink()">链接下载</button>
+  </div>
+
+  <div class="playlist-row">
+    <input id="playlistUrl" placeholder="粘贴歌单链接... 例如 https://y.qq.com/n/ryqq/playlist/123456">
+    <button class="btn btn-outline" onclick="getPlaylist()">获取歌单</button>
+  </div>
 
   <!-- Search -->
   <div class="search-bar">
-    <input id="searchInput" placeholder="搜索歌曲、歌手..." autofocus>
+    <input id="searchInput" placeholder="输入歌曲名或歌手名..." autofocus>
     <select id="searchLimit">
       <option value="5">5</option>
       <option value="10" selected>10</option>
@@ -99,28 +117,6 @@
       <option value="30">30</option>
     </select>
     <button class="btn btn-primary" onclick="doSearch()">搜索</button>
-  </div>
-
-  <!-- Source Chips -->
-  <div class="chips-row">
-    <span class="chips-label">音源:</span>
-    <button class="chip active" data-src="auto" onclick="pickSource('auto',this)">自动</button>
-    <button class="chip" data-src="qq" onclick="pickSource('qq',this)">QQ</button>
-    <button class="chip" data-src="netease" onclick="pickSource('netease',this)">网易云</button>
-    <button class="chip" data-src="kugou" onclick="pickSource('kugou',this)">酷狗</button>
-    <button class="chip" data-src="web" onclick="pickSource('web',this)">网页</button>
-  </div>
-
-  <!-- Quick Actions -->
-  <div class="action-row">
-    <button class="btn btn-outline btn-sm" onclick="getFavorites()">❤️ 收藏</button>
-    <button class="btn btn-outline btn-sm" onclick="showPlaylistInput()">📋 歌单</button>
-    <input id="linkUrl" placeholder="🔗 粘贴链接直接下载..." class="link-input" onkeydown="if(event.key==='Enter')downloadLink()">
-    <button class="btn btn-outline btn-sm" onclick="downloadLink()">链接下载</button>
-  </div>
-  <div id="playlistRow" style="display:none;margin-bottom:10px;">
-    <input id="playlistUrl" placeholder="粘贴歌单链接..." style="flex:1;">
-    <button class="btn btn-outline btn-sm" onclick="getPlaylist()">获取</button>
   </div>
 
   <!-- Results -->
@@ -131,6 +127,14 @@
   <!-- Download bar -->
   <div id="downloadBar" class="download-bar" style="display:none;">
     <span>已选 <span class="count" id="selectedCount">0</span> 首</span>
+    <div class="source-picker">
+      <span style="font-size:0.78rem;color:var(--text-dim);">下载源</span>
+      <button class="src-btn active" data-src="auto" onclick="pickSource('auto', this)">自动</button>
+      <button class="src-btn" data-src="qq" onclick="pickSource('qq', this)">QQ</button>
+      <button class="src-btn" data-src="netease" onclick="pickSource('netease', this)">网易云</button>
+      <button class="src-btn" data-src="kugou" onclick="pickSource('kugou', this)">酷狗</button>
+      <button class="src-btn" data-src="web" onclick="pickSource('web', this)">网页</button>
+    </div>
     <button class="btn btn-primary" onclick="startDownload()">下载选中</button>
     <button class="btn btn-outline btn-sm" onclick="selectAll()">全选</button>
     <button class="btn btn-outline btn-sm" onclick="deselectAll()">取消</button>
@@ -141,6 +145,21 @@
   <div id="summaryArea"></div>
 </main>
 
+<!-- Audio player bar -->
+<div class="player-bar" id="playerBar" style="display:none;">
+  <audio id="audioPlayer" ontimeupdate="updateProgress()" onended="onPlayEnd()" onerror="onPlayError()"></audio>
+  <button class="play-btn-sm" id="playPauseBtn" onclick="togglePlayPause()">▶</button>
+  <div class="player-info">
+    <span class="player-title" id="playerTitle"></span>
+    <span class="player-artist" id="playerArtist"></span>
+  </div>
+  <div class="player-progress" onclick="seekAudio(event)">
+    <div class="player-progress-inner" id="playerProgress"></div>
+  </div>
+  <span class="player-time" id="playerTime">0:00</span>
+  <button class="play-btn-sm" onclick="stopPlayer()" style="font-size:0.8rem;">✕</button>
+</div>
+
 <!-- Toast container -->
 <div class="toast" id="toastContainer"></div>
 
@@ -149,6 +168,7 @@
 let songs = [];
 let selected = new Set();
 let status = {};
+let currentPlatform = 'qq';
 let preferSource = 'auto';
 
 // ── Init ──
@@ -164,6 +184,18 @@ async function init() {
 }
 init();
 
+// ── Platform switching ──
+function switchPlatform(p) {
+  currentPlatform = p;
+  document.querySelectorAll('.plat-tab').forEach(b => b.classList.toggle('active', b.dataset.platform === p));
+  renderStatus();
+}
+
+function pickSource(src, btn) {
+  preferSource = src;
+  document.querySelectorAll('.src-btn').forEach(b => b.classList.toggle('active', b.dataset.src === src));
+}
+
 // ── Toast ──
 function toast(msg, type='info') {
   const c = document.getElementById('toastContainer');
@@ -177,17 +209,33 @@ function toast(msg, type='info') {
 // ── Render ──
 function renderStatus() {
   const el = document.getElementById('loginStatus');
-  if (status.logged_in) {
-    el.innerHTML = `<span class="badge badge-ok">已登录</span> QQ: ${status.uin}`;
+  const accounts = status.accounts || [];
+  const acct = accounts.find(a => a.key === currentPlatform);
+  const btn = document.getElementById('suspendBtn');
+  const logout = document.getElementById('logoutBtn');
+  if (acct && acct.logged_in) {
+    el.innerHTML = `<span class="badge badge-ok">已登录</span> ${acct.name}` + (acct.user ? `: ${acct.user}` : '');
+    btn.textContent = '⏸ 暂停'; btn.style.display = '';
+    logout.style.display = '';
+    suspended = false;
+  } else if (suspended) {
+    const name = acct ? acct.name : '未知';
+    el.innerHTML = `<span class="badge badge-warn">未登录</span> ${name} <span style="font-size:0.7rem;color:var(--accent-glow);">(已暂停)</span>`;
+    btn.textContent = '▶ 恢复'; btn.style.display = '';
+    logout.style.display = 'none';
   } else {
-    el.innerHTML = '<span class="badge badge-warn">未登录</span>';
+    const name = acct ? acct.name : '未知';
+    el.innerHTML = `<span class="badge badge-warn">未登录</span> ${name}`;
+    btn.style.display = 'none';
+    logout.style.display = 'none';
   }
 }
 
-function renderSongs() {
+function renderSongs(hint) {
+  hint = hint || '';
   const area = document.getElementById('resultsArea');
   if (!songs.length) {
-    area.innerHTML = '<div class="empty-state">未找到歌曲</div>';
+    area.innerHTML = hint + '<div class="empty-state">未找到歌曲</div>';
     document.getElementById('downloadBar').style.display = 'none';
     return;
   }
@@ -197,19 +245,24 @@ function renderSongs() {
       <span></span><span>歌曲</span><span>歌手</span><span>专辑</span><span>时长</span>
     </div>`;
 
+  const sourceLabels = { qq: 'QQ', netease: '网易云', kugou: '酷狗', github: 'GitHub' };
   songs.forEach((s, i) => {
     const gb = s.is_gray ? '<span class="gray-badge">VIP</span>' : '';
+    const sources = s.sources || [s.source || 'qq'];
+    const sb = sources.map(src => `<span class="source-badge ${src}">${sourceLabels[src] || src}</span>`).join('');
     const checked = selected.has(i) ? 'checked' : '';
     html += `<div class="song-row">
       <input type="checkbox" ${checked} onchange="toggleSong(${i}, this.checked)" id="cb${i}">
-      <span class="title">${esc(s.title)}${gb}</span>
+      <span class="title">${esc(s.title)}${sb}${gb}</span>
       <span class="singer">${esc(s.singer)}</span>
       <span class="album">${esc(s.album)}</span>
       <span class="duration">${s.duration_str}</span>
+      <button class="play-btn" onclick="playSong('${esc(s.mid)}', '${esc(s.title)}', '${esc(s.singer)}')" title="试听">▶</button>
     </div>`;
   });
 
   html += '</div>';
+  html = hint + html;
   area.innerHTML = html;
   updateSelectedCount();
 }
@@ -250,7 +303,14 @@ async function doSearch() {
     const data = await r.json();
     songs = data.songs || [];
     selected.clear();
-    renderSongs();
+    // Show hint if QQ Music returned no results (likely not logged in)
+    const hasQQ = songs.some(s => s.source === 'qq');
+    const qqHint = (!hasQQ && songs.length > 0)
+      ? '<div class="qq-hint">部分平台未登录时可能限制搜索，请先<b>登录</b>以获取完整结果</div>'
+      : (!hasQQ && songs.length === 0)
+      ? '<div class="qq-hint">未获取到完整结果，请尝试<b>登录</b>后重试</div>'
+      : '';
+    renderSongs(qqHint);
   } catch(e) {
     area.innerHTML = '<div class="empty-state">搜索失败: ' + e.message + '</div>';
     toast('搜索失败: ' + e.message, 'err');
@@ -306,9 +366,9 @@ async function getPlaylist() {
 async function openChrome() {
   toast('正在打开 Chrome...', 'info');
   try {
-    const r = await fetch('/api/login/chrome', {method: 'POST'});
+    const r = await fetch('/api/login/chrome?platform=' + currentPlatform, {method: 'POST'});
     const d = await r.json();
-    if (d.ok) toast('Chrome 已打开，微信扫码后点击「提取Cookie」', 'ok');
+    if (d.ok) toast('Chrome 已打开，扫码后点击「提取Cookie」', 'ok');
     else toast(d.detail || '失败', 'err');
   } catch(e) { toast('打开Chrome失败: ' + e.message, 'err'); }
 }
@@ -316,12 +376,11 @@ async function openChrome() {
 async function extractCookies() {
   toast('正在从 Chrome 提取 Cookie...', 'info');
   try {
-    const r = await fetch('/api/login/cdp', {method: 'POST'});
+    const r = await fetch('/api/login/cdp?platform=' + currentPlatform, {method: 'POST'});
     const d = await r.json();
     if (d.ok) {
-      status.logged_in = true; status.uin = d.uin;
-      renderStatus();
-      toast('登录成功! QQ: ' + d.uin, 'ok');
+      toast(`登录成功! ${d.platform}` + (d.user ? `: ${d.user}` : ''), 'ok');
+      refreshStatus();
     } else {
       toast(d.detail || '提取失败', 'err');
     }
@@ -329,21 +388,17 @@ async function extractCookies() {
 }
 
 async function manualLogin() {
-  const uin = document.getElementById('uinInput').value.trim();
-  const key = document.getElementById('keyInput').value.trim();
-  if (!uin || !key) { toast('请填写 uin 和 key', 'err'); return; }
-  const cookie = `uin=${uin}; qqmusic_key=${key}`;
-
+  const cookie = document.getElementById('cookieInput').value.trim();
+  if (!cookie) { toast('请粘贴 Cookie 字符串', 'err'); return; }
   try {
     const r = await fetch('/api/login/cookie', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({cookie})
+      body: JSON.stringify({cookie, platform: currentPlatform})
     });
     const d = await r.json();
     if (d.ok) {
-      status.logged_in = true; status.uin = d.uin;
-      renderStatus();
-      toast('登录成功!', 'ok');
+      toast(`登录成功! ${d.platform}`, 'ok');
+      refreshStatus();
     }
   } catch(e) { toast('登录失败: ' + e.message, 'err'); }
 }
@@ -352,12 +407,62 @@ async function clearLogin() {
   try {
     await fetch('/api/login/cookie', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({cookie: ''})
+      body: JSON.stringify({cookie: '', platform: currentPlatform})
     });
   } catch(e) {}
-  status.logged_in = false; status.uin = '';
-  renderStatus();
+  refreshStatus();
   toast('已清除登录状态', 'info');
+}
+
+async function refreshStatus() {
+  try {
+    const r = await fetch('/api/status');
+    status = await r.json();
+  } catch(e) {}
+  renderStatus();
+}
+
+let suspended = false;
+
+async function doLogout() {
+  if (!confirm('确认退出登录？将永久清除当前平台的 Cookie。')) return;
+  try {
+    await fetch('/api/login/cookie', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({cookie: '', platform: currentPlatform})
+    });
+  } catch(e) {}
+  suspended = false;
+  document.getElementById('suspendBtn').style.display = 'none';
+  document.getElementById('logoutBtn').style.display = 'none';
+  refreshStatus();
+  toast('已退出登录', 'info');
+}
+
+async function toggleSuspend() {
+  if (!suspended) {
+    try {
+      const r = await fetch('/api/login/suspend?platform=' + currentPlatform, {method: 'POST'});
+      const d = await r.json();
+      if (d.ok) {
+        suspended = true;
+        document.getElementById('suspendBtn').textContent = '▶ 恢复';
+        refreshStatus();
+        toast('已暂停登录状态', 'info');
+      }
+    } catch(e) { toast('操作失败', 'err'); }
+  } else {
+    try {
+      const r = await fetch('/api/login/restore?platform=' + currentPlatform, {method: 'POST'});
+      const d = await r.json();
+      if (d.ok) {
+        suspended = false;
+        document.getElementById('suspendBtn').textContent = '⏸ 暂停';
+        refreshStatus();
+        toast('已恢复登录状态', 'ok');
+      }
+    } catch(e) { toast('操作失败', 'err'); }
+  }
 }
 
 // ── Settings ──
@@ -389,6 +494,7 @@ async function startDownload() {
     quality: document.getElementById('qualitySelect').value,
     save_dir: document.getElementById('saveDirInput').value.trim(),
     workers: parseInt(document.getElementById('workersInput').value) || 3,
+    prefer_source: preferSource,
   };
 
   try {
@@ -428,6 +534,8 @@ async function startDownload() {
         document.getElementById('progBar').style.width = pct + '%';
         document.getElementById('progLive').textContent =
           `[${msg.current}/${msg.total}] ${msg.title} - ${msg.singer}  (✓${msg.succeeded} ✗${msg.failed} ⏭${msg.skipped})`;
+      } else if (msg.type === 'status') {
+        document.getElementById('progLive').textContent = msg.text;
       } else if (msg.type === 'fallback') {
         document.getElementById('progLive').textContent =
           `🔄 换源: ${msg.title} → ${msg.source}`;
@@ -448,9 +556,11 @@ async function discoverSources() {
   const aiKey = document.getElementById('aiKey').value.trim();
   const aiBaseUrl = document.getElementById('aiBaseUrl').value.trim();
 
-  let ai_api = '', model = '', base_url = aiBaseUrl;
+  const aiModelName = document.getElementById('aiModelName').value.trim();
+  let ai_api = '', model = aiModelName, base_url = aiBaseUrl;
   if (aiKey) {
-    if (aiModel === 'openai') { ai_api = 'openai'; if (!base_url) base_url = 'https://api.openai.com'; }
+    if (aiModel === 'deepseek') { ai_api = 'openai'; if (!base_url) base_url = 'https://api.deepseek.com'; }
+    else if (aiModel === 'openai') { ai_api = 'openai'; if (!base_url) base_url = 'https://api.openai.com'; }
     else if (aiModel === 'claude') { ai_api = 'claude'; if (!base_url) base_url = 'https://api.anthropic.com'; }
   }
 
@@ -469,26 +579,19 @@ async function discoverSources() {
   } catch(e) { el.innerHTML = '搜索失败: ' + e.message; }
 }
 
-async function checkSources() {
+async function importLxSources() {
   const el = document.getElementById('sourceResult');
-  el.innerHTML = '<span class="spinner"></span> 测试中...';
+  el.innerHTML = '<span class="spinner"></span> 加载 LX 音源...';
   try {
-    const r = await fetch('/api/sources/status');
+    const r = await fetch('/api/sources/lx/import', {method: 'POST'});
     const d = await r.json();
-    const items = Object.entries(d.sources || {}).map(([n, i]) =>
-      `${i.available ? '✅' : '❌'} ${n}: ${i.available ? i.results + ' results' : i.error}`);
-    el.innerHTML = items.join('<br>') || '无音源';
-  } catch(e) { el.innerHTML = '测试失败: ' + e.message; }
-}
-
-// ── Source Picker ──
-function pickSource(src, btn) {
-  preferSource = src;
-  document.querySelectorAll('.chip').forEach(b => b.classList.toggle('active', b.dataset.src === src));
-}
-
-function showPlaylistInput() {
-  document.getElementById('playlistRow').style.display = 'flex';
+    if (d.ok) {
+      el.innerHTML = `已加载 ${d.sources} 个 LX 音源 (${(d.platforms||[]).join(', ') || '无'})<br>
+        <span style="font-size:0.7rem;color:var(--text-dim);">将 .js 音源文件放入 ~/.config/music-dl/lx_sources/ 目录</span>`;
+    } else {
+      el.innerHTML = '加载失败：未找到 LX 音源文件';
+    }
+  } catch(e) { el.innerHTML = '加载失败: ' + e.message; }
 }
 
 // ── Link Download ──
@@ -504,12 +607,24 @@ async function downloadLink() {
     });
     if (!r.ok) { const e = await r.json(); throw new Error(e.detail); }
     const d = await r.json();
-    area.innerHTML = `<div class="empty-state"><div class="icon">✅</div><p>${esc(d.title)} 下载完成</p><p style="font-size:0.8rem;color:var(--text-dim)">${d.method==='ai'?'🤖 AI':'📐 规则'}提取 · ${d.path}</p></div>`;
+    area.innerHTML = '<div class="empty-state">✅ ' + esc(d.title) + ' 下载完成<br><span style="font-size:0.8rem;color:var(--text-dim)">' + (d.method==='ai'?'AI':'规则') + '提取 · ' + d.path + '</span></div>';
     toast('下载完成: ' + d.title, 'ok');
   } catch(e) {
-    area.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>${esc(e.message)}</p></div>`;
+    area.innerHTML = '<div class="empty-state">❌ ' + esc(e.message) + '</div>';
     toast(e.message, 'err');
   }
+}
+
+async function checkSources() {
+  const el = document.getElementById('sourceResult');
+  el.innerHTML = '<span class="spinner"></span> 测试中...';
+  try {
+    const r = await fetch('/api/sources/status');
+    const d = await r.json();
+    const items = Object.entries(d.sources || {}).map(([n, i]) =>
+      `${i.available ? '✅' : '❌'} ${n}: ${i.available ? i.results + ' results' : i.error}`);
+    el.innerHTML = items.join('<br>') || '无音源';
+  } catch(e) { el.innerHTML = '测试失败: ' + e.message; }
 }
 
 // ── Misc ──
@@ -517,11 +632,115 @@ function toggleCollapse(id) {
   document.getElementById(id).classList.toggle('open');
 }
 
-// AI model change → show/hide key inputs
+async function saveAiConfig() {
+  const body = {
+    ai_model: document.getElementById('aiModel').value,
+    ai_model_name: document.getElementById('aiModelName').value.trim(),
+    ai_key: document.getElementById('aiKey').value.trim(),
+    ai_base_url: document.getElementById('aiBaseUrl').value.trim(),
+  };
+  try {
+    const r = await fetch('/api/config/ai', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    if (r.ok) toast('AI 配置已保存', 'ok');
+    else toast('保存失败', 'err');
+  } catch(e) { toast('保存失败', 'err'); }
+}
+
+// AI model change → show/hide key inputs + auto-fill defaults
 document.getElementById('aiModel').addEventListener('change', function() {
-  document.getElementById('aiKeyGroup').style.display =
-    this.value === 'rule-based' ? 'none' : 'block';
+  const group = document.getElementById('aiKeyGroup');
+  const model = this.value;
+  group.style.display = model === 'rule-based' ? 'none' : 'block';
+  if (model === 'deepseek') {
+    if (!document.getElementById('aiBaseUrl').value) document.getElementById('aiBaseUrl').value = 'https://api.deepseek.com';
+  }
 });
+
+// Load AI config on init
+(async function loadAiConfig() {
+  try {
+    const r = await fetch('/api/config/ai');
+    const d = await r.json();
+    if (d.ai_model) document.getElementById('aiModel').value = d.ai_model;
+    if (d.ai_model_name) document.getElementById('aiModelName').value = d.ai_model_name;
+    if (d.ai_key) document.getElementById('aiKey').value = d.ai_key;
+    if (d.ai_base_url) document.getElementById('aiBaseUrl').value = d.ai_base_url;
+    if (d.ai_model && d.ai_model !== 'rule-based') {
+      document.getElementById('aiKeyGroup').style.display = 'block';
+    }
+    // Auto-select deepseek if no model configured
+    if (!d.ai_model) {
+      document.getElementById('aiModel').value = 'deepseek';
+      document.getElementById('aiBaseUrl').value = 'https://api.deepseek.com';
+      document.getElementById('aiKeyGroup').style.display = 'block';
+    }
+  } catch(e) {}
+})();
+
+// ── Audio Player ──
+function playSong(mid, title, artist) {
+  const player = document.getElementById('audioPlayer');
+  const bar = document.getElementById('playerBar');
+  const quality = document.getElementById('qualitySelect').value;
+
+  document.getElementById('playerTitle').textContent = title;
+  document.getElementById('playerArtist').textContent = artist;
+  bar.style.display = 'flex';
+  document.getElementById('playPauseBtn').textContent = '⏳';
+
+  fetch('/api/play', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({mid: mid, quality: quality})
+  }).then(r => r.json()).then(d => {
+    player.src = d.url;
+    player.play().catch(() => {});
+    document.getElementById('playPauseBtn').textContent = '⏸';
+  }).catch(() => {
+    document.getElementById('playPauseBtn').textContent = '▶';
+    toast('无法获取播放链接', 'err');
+  });
+}
+
+function togglePlayPause() {
+  const player = document.getElementById('audioPlayer');
+  if (player.paused) { player.play().catch(() => {}); document.getElementById('playPauseBtn').textContent = '⏸'; }
+  else { player.pause(); document.getElementById('playPauseBtn').textContent = '▶'; }
+}
+
+function stopPlayer() {
+  const player = document.getElementById('audioPlayer');
+  player.pause(); player.src = '';
+  document.getElementById('playerBar').style.display = 'none';
+}
+
+function updateProgress() {
+  const player = document.getElementById('audioPlayer');
+  if (player.duration) {
+    const pct = (player.currentTime / player.duration) * 100;
+    document.getElementById('playerProgress').style.width = pct + '%';
+    const m = Math.floor(player.currentTime / 60);
+    const s = Math.floor(player.currentTime % 60);
+    document.getElementById('playerTime').textContent = m + ':' + String(s).padStart(2,'0');
+  }
+}
+
+function seekAudio(e) {
+  const player = document.getElementById('audioPlayer');
+  if (player.duration) {
+    const rect = e.target.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    player.currentTime = pct * player.duration;
+  }
+}
+
+function onPlayEnd() { document.getElementById('playPauseBtn').textContent = '▶'; }
+function onPlayError() {
+  document.getElementById('playPauseBtn').textContent = '▶';
+  toast('播放失败，可能是VIP歌曲或链接过期', 'err');
+}
 
 // Enter key in search
 document.getElementById('searchInput').addEventListener('keydown', function(e) {
