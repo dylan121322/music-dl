@@ -170,6 +170,7 @@ let selected = new Set();
 let status = {};
 let currentPlatform = 'qq';
 let preferSource = 'auto';
+let suspended = false;
 
 // ── Init ──
 async function init() {
@@ -257,7 +258,7 @@ function renderSongs(hint) {
       <span class="singer">${esc(s.singer)}</span>
       <span class="album">${esc(s.album)}</span>
       <span class="duration">${s.duration_str}</span>
-      <button class="play-btn" onclick="playSong('${esc(s.mid)}', '${esc(s.title)}', '${esc(s.singer)}')" title="试听">▶</button>
+      <button class="play-btn" onclick="playSong('${escJs(s.qqmid || s.mid)}', '${escJs(s.title)}', '${escJs(s.singer)}')" title="试听">▶</button>
     </div>`;
   });
 
@@ -271,6 +272,11 @@ function esc(s) {
   const d = document.createElement('div');
   d.textContent = s || '';
   return d.innerHTML;
+}
+
+function escJs(s) {
+  // Escape for JavaScript single-quoted strings (prevents XSS in onclick)
+  return (s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
 function updateSelectedCount() {
