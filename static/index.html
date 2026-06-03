@@ -87,6 +87,21 @@
     <div id="sourceResult" style="margin-top:8px;font-size:0.78rem;"></div>
   </div>
 
+  <!-- Downloads -->
+  <div class="section">
+    <div class="section-title">📂 下载管理</div>
+    <div id="dlCount" style="font-size:0.8rem;color:var(--text-dim);margin-bottom:6px;">-- 个文件</div>
+    <button class="btn btn-outline btn-sm btn-block" onclick="showDownloads()">查看下载列表</button>
+  </div>
+
+  <!-- Logs -->
+  <div class="section">
+    <div class="section-title">📋 日志</div>
+    <div id="logStats" style="font-size:0.75rem;color:var(--text-dim);margin-bottom:6px;line-height:1.5;"></div>
+    <button class="btn btn-outline btn-sm btn-block" onclick="exportLogs('json')">导出 JSON</button>
+    <button class="btn btn-outline btn-sm btn-block" onclick="exportLogs('txt')" style="margin-top:4px;">导出 TXT</button>
+  </div>
+
   <div style="margin-top:auto; text-align:center;">
     <div id="downloadedCount" style="font-size:0.8rem;color:var(--text-dim);margin-bottom:12px;"></div>
   </div>
@@ -181,6 +196,8 @@ async function init() {
   document.getElementById('saveDirInput').value = status.download_dir || '';
   document.getElementById('qualitySelect').value = status.quality || '320kbps';
   document.getElementById('workersInput').value = status.workers || 3;
+  loadDownloadCount();
+  loadLogStats();
 }
 init();
 
@@ -597,6 +614,79 @@ async function downloadLink() {
     area.innerHTML = '<div class="empty-state">❌ ' + esc(e.message) + '</div>';
     toast(e.message, 'err');
   }
+}
+
+// ── Downloads ──
+async function loadDownloadCount() {
+  try {
+    const r = await fetch('/api/downloads');
+    const d = await r.json();
+    document.getElementById('dlCount').textContent = `${d.files.length} 个文件 · ${d.dir}`;
+  } catch(e) { document.getElementById('dlCount').textContent = '加载失败'; }
+}
+
+async function showDownloads() {
+  const area = document.getElementById('resultsArea');
+  area.innerHTML = '<div class="empty-state"><span class="spinner"></span> 加载下载列表...</div>';
+  try {
+    const r = await fetch('/api/downloads');
+    const d = await r.json();
+    if (!d.files.length) { area.innerHTML = '<div class="empty-state">📂 暂无下载文件</div>'; return; }
+    let html = `<div class="song-list"><div class="song-header" style="grid-template-columns:1fr 120px 100px"><span>文件名</span><span>大小</span><span>操作</span></div>`;
+    d.files.forEach(f => {
+      html += `<div class="song-row" style="grid-template-columns:1fr 120px 100px">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span>
+        <span style="font-size:0.75rem;color:var(--text-dim)">${(f.size/1048576).toFixed(1)} MB</span>
+        <button class="btn btn-outline btn-sm" onclick="playFile('${escJs(f.path)}', '${escJs(f.name)}')" style="padding:2px 8px;font-size:0.7rem;">▶ 播放</button>
+      </div>`;
+    });
+    html += '</div>';
+    area.innerHTML = html;
+  } catch(e) { area.innerHTML = '<div class="empty-state">加载失败: ' + esc(e.message) + '</div>'; }
+}
+
+async function playFile(path, name) {
+  const bar = document.getElementById('playerBar');
+  const player = document.getElementById('audioPlayer');
+  player.src = '/api/stream?path=' + encodeURIComponent(path);
+  document.getElementById('playerTitle').textContent = name;
+  document.getElementById('playerArtist').textContent = '';
+  bar.style.display = 'flex';
+  document.getElementById('playPauseBtn').textContent = '⏳';
+  player.play().then(() => {
+    document.getElementById('playPauseBtn').textContent = '⏸';
+  }).catch(e => { toast('播放失败: ' + e.message, 'err'); });
+  document.getElementById('currentSongTitle').textContent = name;
+}
+
+// ── Logs ──
+async function loadLogStats() {
+  try {
+    const r = await fetch('/api/logs/status');
+    const d = await r.json();
+    document.getElementById('logStats').innerHTML =
+      `${d.total_lines} 行 · ${d.errors} 错误 · ${d.warnings} 警告<br>${d.file_size_mb} MB`;
+  } catch(e) { document.getElementById('logStats').textContent = '加载失败'; }
+}
+
+function exportLogs(fmt) {
+  const area = document.getElementById('resultsArea');
+  area.innerHTML = '<div class="empty-state"><span class="spinner"></span> 导出中...</div>';
+  fetch('/api/logs/export', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({format: fmt, date: null})
+  }).then(r => {
+    if (!r.ok) return r.json().then(e => { throw new Error(e.detail); });
+    if (fmt === 'txt') return r.text().then(t => {
+      area.innerHTML = '<div style="white-space:pre-wrap;font-family:monospace;font-size:0.78rem;max-height:500px;overflow:auto;background:var(--bg-card);padding:12px;border-radius:var(--radius-sm);border:1px solid var(--border)">' + esc(t) + '</div>';
+    });
+    return r.json().then(d => {
+      area.innerHTML = '<div class="empty-state">✅ 导出 ' + (d.entries ? d.entries.length : 0) + ' 条日志</div>';
+      toast('已导出 ' + (d.entries ? d.entries.length : 0) + ' 条', 'ok');
+    });
+  }).catch(e => {
+    area.innerHTML = '<div class="empty-state">导出失败: ' + esc(e.message) + '</div>';
+  });
 }
 
 async function checkSources() {
