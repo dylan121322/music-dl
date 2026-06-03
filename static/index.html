@@ -656,7 +656,6 @@ async function playFile(path, name) {
   player.play().then(() => {
     document.getElementById('playPauseBtn').textContent = '⏸';
   }).catch(e => { toast('播放失败: ' + e.message, 'err'); });
-  document.getElementById('currentSongTitle').textContent = name;
 }
 
 // ── Logs ──
