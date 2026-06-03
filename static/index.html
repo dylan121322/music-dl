@@ -291,9 +291,10 @@ function esc(s) {
 }
 
 function escJs(s) {
-  // JS backslash-escape for onclick context. HTML parser doesn't touch backslashes,
-  // so \x22 and \' reach the JS engine intact and decode to " and '
-  return (s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\x22');
+  // Escape for inline onclick: first escape JS string characters with backslash
+  // sequences (HTML parser ignores these), then escape & to block HTML entity
+  // injection (&#39; would decode to ' before JS evaluation)
+  return (s || '').replace(/&/g, '&amp;').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\x22');
 }
 
 function updateSelectedCount() {

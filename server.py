@@ -1,6 +1,5 @@
 """FastAPI server for Music DL — REST API + static frontend."""
 import sys
-import os
 import json
 import asyncio
 import threading
@@ -324,14 +323,13 @@ def api_stream(path: str = ""):
     if not path:
         raise HTTPException(status_code=400, detail="Missing path param")
     from tempfile import gettempdir
-    import os
     config = load_config(CONFIG_PATH)
     file_path = Path(path).resolve()
     allowed_dirs = [
         Path(config.get("download_dir", str(Path.home() / "Music"))).resolve(),
         Path(gettempdir()).resolve() / "musicdl_cache",
     ]
-    if not any((str(d) + os.sep) in (str(file_path) + os.sep) for d in allowed_dirs):
+    if not any(file_path.is_relative_to(d) for d in allowed_dirs):
         raise HTTPException(status_code=403, detail="Access denied")
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="File not found")
