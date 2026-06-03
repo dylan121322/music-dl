@@ -133,8 +133,10 @@ def _rule_extract(html: str, base_url: str) -> Optional[dict]:
                 if isinstance(audio, dict):
                     audio = audio.get("url", "")
                 if isinstance(audio, str) and audio.startswith("http"):
+                    raw_title = ld.get("name", "Music")
+                    safe_title = _filename_from_url("https://x/" + raw_title) if raw_title else "Music"
                     return {"url": audio,
-                            "title": ld.get("name", "Music"),
+                            "title": safe_title,
                             "method": "rule"}
         except Exception:
             pass
