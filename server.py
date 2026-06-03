@@ -1,5 +1,6 @@
 """FastAPI server for Music DL — REST API + static frontend."""
 import sys
+import os
 import json
 import asyncio
 import threading
@@ -349,6 +350,18 @@ def api_downloads():
 @app.get("/api/cache")
 def api_cache(url: str):
     """Download external URL to local cache and return local path for playback."""
+    from urllib.parse import urlparse
+    allowed_hosts = {"y.qq.com", "isure.stream.qqmusic.qq.com", "dl.stream.qqmusic.qq.com",
+                     "music.163.com", "m10.music.126.net", "m7.music.126.net", "m8.music.126.net",
+                     "kugou.com", "fs.open.kugou.com", "fs.w.kugou.com"}
+    parsed = urlparse(url)
+    if any(parsed.hostname and parsed.hostname.endswith(h) for h in allowed_hosts):
+        pass
+    else:
+        raise HTTPException(status_code=403, detail=f"Blocked host: {parsed.hostname or 'unknown'}")
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(status_code=403, detail="Blocked scheme")
+
     import requests as _req, hashlib, tempfile
 
     cache_dir = Path(tempfile.gettempdir()) / "musicdl_cache"
@@ -417,7 +430,7 @@ def api_stream(path: str = "", url: str = ""):
             Path(config.get("download_dir", str(Path.home() / "Music"))).resolve(),
             Path(gettempdir()).resolve() / "musicdl_cache",
         ]
-        if not any(str(file_path).startswith(str(d)) for d in allowed_dirs):
+        if not any((str(d) + os.sep) in (str(file_path) + os.sep) for d in allowed_dirs):
             raise HTTPException(status_code=403, detail="Access denied")
         if not file_path.exists() or not file_path.is_file():
             raise HTTPException(status_code=404, detail="File not found")

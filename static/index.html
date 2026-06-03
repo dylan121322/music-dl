@@ -214,7 +214,7 @@ function renderStatus() {
   const btn = document.getElementById('suspendBtn');
   const logout = document.getElementById('logoutBtn');
   if (acct && acct.logged_in) {
-    el.innerHTML = `<span class="badge badge-ok">已登录</span> ${acct.name}` + (acct.user ? `: ${acct.user}` : '');
+    el.innerHTML = `<span class="badge badge-ok">已登录</span> ${esc(acct.name)}` + (acct.user ? `: ${esc(acct.user)}` : '');
     btn.textContent = '⏸ 暂停'; btn.style.display = '';
     logout.style.display = '';
     suspended = false;
@@ -274,8 +274,8 @@ function esc(s) {
 }
 
 function escJs(s) {
-  // Escape for JavaScript single-quoted strings (prevents XSS in onclick)
-  return (s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  // Escape for JS strings inside double-quoted HTML attributes
+  return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function updateSelectedCount() {
@@ -317,7 +317,7 @@ async function doSearch() {
       : '';
     renderSongs(qqHint);
   } catch(e) {
-    area.innerHTML = '<div class="empty-state">搜索失败: ' + e.message + '</div>';
+    area.innerHTML = '<div class="empty-state">搜索失败: ' + esc(e.message) + '</div>';
     toast('搜索失败: ' + e.message, 'err');
   }
 }
@@ -338,7 +338,7 @@ async function getFavorites() {
     renderSongs();
     toast(`获取到 ${songs.length} 首收藏歌曲`, 'ok');
   } catch(e) {
-    area.innerHTML = '<div class="empty-state">获取失败: ' + e.message + '</div>';
+    area.innerHTML = '<div class="empty-state">获取失败: ' + esc(e.message) + '</div>';
     toast('获取收藏失败: ' + e.message, 'err');
   }
 }
@@ -362,7 +362,7 @@ async function getPlaylist() {
     renderSongs();
     toast(`获取到 ${songs.length} 首歌`, 'ok');
   } catch(e) {
-    area.innerHTML = '<div class="empty-state">加载失败: ' + e.message + '</div>';
+    area.innerHTML = '<div class="empty-state">加载失败: ' + esc(e.message) + '</div>';
     toast('加载歌单失败: ' + e.message, 'err');
   }
 }
@@ -575,11 +575,11 @@ async function discoverSources() {
     const d = await r.json();
     if (d.sources && d.sources.length) {
       el.innerHTML = '发现 ' + d.sources.length + ' 个新音源:<br>' +
-        d.sources.map(s => `🎵 ${s.name} (${Math.round(s.confidence*100)}%)`).join('<br>');
+        d.sources.map(s => '🎵 ' + esc(s.name) + ' (' + Math.round(s.confidence*100) + '%)').join('<br>');
     } else {
       el.innerHTML = '未发现新音源';
     }
-  } catch(e) { el.innerHTML = '搜索失败: ' + e.message; }
+  } catch(e) { el.innerHTML = '搜索失败: ' + esc(e.message); }
 }
 
 async function importLxSources() {
@@ -594,7 +594,7 @@ async function importLxSources() {
     } else {
       el.innerHTML = '加载失败：未找到 LX 音源文件';
     }
-  } catch(e) { el.innerHTML = '加载失败: ' + e.message; }
+  } catch(e) { el.innerHTML = '加载失败: ' + esc(e.message); }
 }
 
 // ── Link Download ──
@@ -627,7 +627,7 @@ async function checkSources() {
     const items = Object.entries(d.sources || {}).map(([n, i]) =>
       `${i.available ? '✅' : '❌'} ${n}: ${i.available ? i.results + ' results' : i.error}`);
     el.innerHTML = items.join('<br>') || '无音源';
-  } catch(e) { el.innerHTML = '测试失败: ' + e.message; }
+  } catch(e) { el.innerHTML = '测试失败: ' + esc(e.message); }
 }
 
 // ── Misc ──

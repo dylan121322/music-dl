@@ -1,5 +1,7 @@
 """Utility functions for QQ Music Downloader."""
 from typing import List, Optional
+import os
+import threading
 import time
 import functools
 import json
@@ -135,8 +137,11 @@ def retry(max_attempts: int = 3, backoff: float = 1.0):
     return decorator
 
 
+_config_lock = threading.Lock()
+
+
 def load_config(config_path: Path) -> dict:
-    """Load JSON config file, return defaults if missing."""
+    """Load JSON config file, return defaults if missing. Thread-safe."""
     defaults = {
         "download_dir": str(Path.home() / "Music" / "QQMusic"),
         "quality": "320kbps",
@@ -145,8 +150,9 @@ def load_config(config_path: Path) -> dict:
     }
     if config_path.exists():
         try:
-            with open(config_path) as f:
-                loaded = json.load(f)
+            with _config_lock:
+                with open(config_path) as f:
+                    loaded = json.load(f)
             defaults.update(loaded)
         except json.JSONDecodeError:
             logger.warning("Corrupt config file at %s, using defaults.", config_path)
@@ -154,10 +160,13 @@ def load_config(config_path: Path) -> dict:
 
 
 def save_config(config_path: Path, config: dict) -> None:
-    """Save config dict to JSON file."""
+    """Save config dict to JSON file. Thread-safe, atomic write."""
     config_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(config_path, "w") as f:
-        json.dump(config, f, indent=2, ensure_ascii=False)
+    tmp_path = config_path.with_suffix(config_path.suffix + ".tmp")
+    with _config_lock:
+        with open(tmp_path, "w") as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+    os.replace(tmp_path, config_path)  # atomic on POSIX
 
 
 def load_ai_config(config_path=None) -> Optional[dict]:
