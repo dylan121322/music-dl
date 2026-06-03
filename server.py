@@ -182,6 +182,20 @@ def api_save_ai_config(body: AiConfigRequest):
     return {"ok": True}
 
 
+@app.post("/api/config")
+def api_save_config(body: dict):
+    """Save user settings (called by frontend saveSettings())."""
+    config = load_config(CONFIG_PATH)
+    if body.get("quality") is not None:
+        config["quality"] = body["quality"]
+    if body.get("download_dir") is not None:
+        config["download_dir"] = body["download_dir"]
+    if body.get("workers") is not None:
+        config["workers"] = body["workers"]
+    save_config(CONFIG_PATH, config)
+    return {"ok": True}
+
+
 @app.post("/api/search")
 def api_search(body: SearchRequest):
     from concurrent.futures import ThreadPoolExecutor, as_completed

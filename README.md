@@ -77,7 +77,7 @@ cd android
 ### 桌面端独立窗口（可选）
 
 ```bash
-python webview_launcher.py    # 内置 WebView 窗口，无需打开浏览器
+python launcher.py             # 内置 WebView 窗口，无需打开浏览器
 ```
 
 ## 快速开始
