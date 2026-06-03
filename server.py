@@ -386,38 +386,8 @@ def api_cache(url: str):
 
 
 @app.get("/api/stream")
-def api_stream(path: str = "", url: str = ""):
-    """Stream audio: local file (path param) or proxy external URL (url param)."""
-    import requests as _req
-
-    # Proxy external URL
-    if url:
-        try:
-            # Use the API's session cookies for CDN auth
-            api = get_api()
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "Referer": "https://y.qq.com",
-                "Cookie": api.session.headers.get("Cookie", ""),
-            }
-            resp = _req.get(url, headers=headers, stream=True, timeout=(5, 30))
-            content_type = resp.headers.get("content-type", "audio/mpeg")
-            content_length = resp.headers.get("content-length", "")
-            # Map QQ Music M4A type
-            if "mp4" in content_type or "m4a" in content_type.lower():
-                content_type = "audio/mp4"
-            return StreamingResponse(
-                resp.iter_content(chunk_size=65536),
-                media_type=content_type,
-                status_code=200,
-                headers={
-                    "Accept-Ranges": "none",
-                    "Content-Length": content_length,
-                    "Content-Type": content_type,
-                }
-            )
-        except Exception:
-            raise HTTPException(status_code=404, detail="Cannot proxy URL")
+def api_stream(path: str = ""):
+    """Stream local audio file."""
 
     # Local file — validate path is within allowed directories
     if path:

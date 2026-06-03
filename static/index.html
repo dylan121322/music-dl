@@ -611,7 +611,7 @@ async function downloadLink() {
     });
     if (!r.ok) { const e = await r.json(); throw new Error(e.detail); }
     const d = await r.json();
-    area.innerHTML = '<div class="empty-state">✅ ' + esc(d.title) + ' 下载完成<br><span style="font-size:0.8rem;color:var(--text-dim)">' + (d.method==='ai'?'AI':'规则') + '提取 · ' + d.path + '</span></div>';
+    area.innerHTML = '<div class="empty-state">✅ ' + esc(d.title) + ' 下载完成<br><span style="font-size:0.8rem;color:var(--text-dim)">' + (d.method==='ai'?'AI':'规则') + '提取 · ' + esc(d.path) + '</span></div>';
     toast('下载完成: ' + d.title, 'ok');
   } catch(e) {
     area.innerHTML = '<div class="empty-state">❌ ' + esc(e.message) + '</div>';
