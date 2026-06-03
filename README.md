@@ -299,14 +299,14 @@ pytest tests/ -v    # 65 tests
 | `/api/status` | GET | 登录状态、音质、下载目录 |
 | `/api/search` | POST | 聚合搜索 `{"keyword":"晴天","limit":20}` |
 | `/api/play` | POST | 获取播放链接 `{"mid":"xxx","quality":"320kbps"}` |
-| `/api/cache` | GET | 缓存音频到本地 `?url=...` |
-| `/api/stream` | GET | 流式播放 `?path=...` 或代理 `?url=...` |
+| `/api/stream` | GET | 流式播放本地文件 `?path=...` |
 | `/api/download` | POST | 批量下载 `{"songs":[...],"quality":"320kbps"}` |
 | `/api/download/progress/{id}` | GET | SSE 下载进度 |
-| `/api/downloads` | GET | 已下载文件列表 |
-| `/api/favorites` | POST | 收藏列表（需登录） |
+| `/api/downloads` | GET | 已下载文件列表（Web 侧边栏 📂） |
 | `/api/playlist` | POST | 歌单提取 `{"url":"..."}` |
 | `/api/link` | POST | 链接下载 `{"url":"...","quality":"320kbps"}` |
+| `/api/logs/status` | GET | 日志统计（行数/错误/警告/大小） |
+| `/api/logs/export` | POST | 导出日志 `{"format":"json"\|"txt","date":null}` |
 | `/api/login/cookie` | POST | Cookie 登录 `{"cookie":"...","platform":"qq"}` |
 | `/api/login/chrome` | POST | 打开 Chrome 登录页 `?platform=qq` |
 | `/api/login/cdp` | POST | CDP 提取 Cookie `?platform=qq` |
