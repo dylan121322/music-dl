@@ -355,9 +355,7 @@ def api_cache(url: str):
                      "music.163.com", "m10.music.126.net", "m7.music.126.net", "m8.music.126.net",
                      "kugou.com", "fs.open.kugou.com", "fs.w.kugou.com"}
     parsed = urlparse(url)
-    if any(parsed.hostname and parsed.hostname.endswith(h) for h in allowed_hosts):
-        pass
-    else:
+    if not (parsed.hostname and any(parsed.hostname == h or parsed.hostname.endswith("." + h) for h in allowed_hosts)):
         raise HTTPException(status_code=403, detail=f"Blocked host: {parsed.hostname or 'unknown'}")
     if parsed.scheme not in ("http", "https"):
         raise HTTPException(status_code=403, detail="Blocked scheme")

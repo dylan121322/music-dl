@@ -274,8 +274,9 @@ function esc(s) {
 }
 
 function escJs(s) {
-  // Escape for JS strings inside double-quoted HTML attributes
-  return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  // JS backslash-escape for onclick context. HTML parser doesn't touch backslashes,
+  // so \x22 and \' reach the JS engine intact and decode to " and '
+  return (s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\x22');
 }
 
 function updateSelectedCount() {
