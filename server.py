@@ -156,45 +156,6 @@ def _dict_to_song(d: dict) -> Song:
 # ── API Routes ──
 
 
-@app.get("/debug/play")
-def debug_play():
-    import requests as _req
-    api = get_api()
-    songs = api.search("晴天", limit=3)
-    results = []
-    for song in songs[:2]:
-        for q in ["320kbps"]:
-            url = api.get_song_url(song.mid, q)
-            if not url: continue
-            # Download the full audio and check
-            try:
-                r = _req.get(url, headers={
-                    "User-Agent": "Mozilla/5.0",
-                    "Referer": "https://y.qq.com",
-                    "Cookie": api.session.headers.get("Cookie", ""),
-                }, timeout=15, stream=True)
-                size = 0
-                header = b''
-                for chunk in r.iter_content(65536):
-                    header = chunk[:16]
-                    size += len(chunk)
-                    if size > 65536:
-                        break
-                hexhdr = header.hex() if header else 'none'
-                results.append({
-                    "title": song.title, "q": q,
-                    "status": r.status_code,
-                    "type": r.headers.get("content-type","?"),
-                    "size": size,
-                    "header": hexhdr,
-                    "url": url[:120]
-                })
-                break
-            except Exception as e:
-                results.append({"title": song.title, "q": q, "err": str(e)[:80]})
-    return {"logged_in": bool(api.g_tk), "uin": api.uin, "results": results}
-
-
 @app.get("/api/status")
 def api_status():
     api = get_api()
@@ -344,6 +305,9 @@ def api_search(body: SearchRequest):
         r["source"] = r["sources"][0]  # primary source for backward compat
         seen = set()
         r["sources"] = [s for s in r["sources"] if not (s in seen or seen.add(s))]
+        # Use qqmid as mid when available (cross-platform dedup may have set wrong mid)
+        if r.get("qqmid"):
+            r["mid"] = r["qqmid"]
     results.sort(key=lambda r: (0 if "qq" in r["sources"] else 1, r.get("title", "")))
     return {"songs": results}
 
