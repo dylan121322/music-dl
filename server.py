@@ -1,6 +1,5 @@
 """FastAPI server for Music DL — REST API + static frontend."""
 import sys
-import os
 import json
 import asyncio
 import threading
@@ -15,13 +14,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from api import MusicAPI
 from models import Song
 from downloader import Downloader
 from utils import load_config, save_config, QUALITY_MAP, cookie_to_auth, get_account, save_account, get_platform_status, PLATFORMS
-from sources import get_best_free, set_source_cookies, _netease_instance, _kugou_instance, _github_instance, load_lx_sources
+from sources import set_source_cookies, _netease_instance, _kugou_instance, _github_instance, load_lx_sources
 from logger import setup_logging, get_logger
 from exporter import export_logs, get_log_stats
 
@@ -87,11 +85,6 @@ class DownloadRequest(BaseModel):
     prefer_source: str = "auto"  # "auto" | "qq" | "netease" | "kugou"
 
 
-class FavoritesRequest(BaseModel):
-    page: int = 0
-    size: int = 50
-
-
 class PlaylistRequest(BaseModel):
     url: str
 
@@ -99,12 +92,6 @@ class PlaylistRequest(BaseModel):
 class CookieRequest(BaseModel):
     cookie: str
     platform: str = "qq"
-
-
-class ConfigUpdateRequest(BaseModel):
-    quality: Optional[str] = None
-    download_dir: Optional[str] = None
-    workers: Optional[int] = None
 
 
 class AiConfigRequest(BaseModel):
@@ -190,28 +177,6 @@ def api_save_ai_config(body: AiConfigRequest):
     config["ai_model_name"] = body.ai_model_name
     config["ai_key"] = body.ai_key
     config["ai_base_url"] = body.ai_base_url
-    save_config(CONFIG_PATH, config)
-    return {"ok": True}
-
-
-@app.get("/api/config")
-def api_get_config():
-    config = load_config(CONFIG_PATH)
-    cookie = config.get("cookie", "")
-    if cookie and len(cookie) > 30:
-        config["cookie"] = cookie[:30] + "..."
-    return config
-
-
-@app.post("/api/config")
-def api_save_config(body: ConfigUpdateRequest):
-    config = load_config(CONFIG_PATH)
-    if body.quality is not None:
-        config["quality"] = body.quality
-    if body.download_dir is not None:
-        config["download_dir"] = body.download_dir
-    if body.workers is not None:
-        config["workers"] = body.workers
     save_config(CONFIG_PATH, config)
     return {"ok": True}
 
@@ -313,15 +278,6 @@ def api_search(body: SearchRequest):
     return {"songs": results}
 
 
-@app.post("/api/favorites")
-def api_favorites(body: FavoritesRequest):
-    api = get_api()
-    if not api.g_tk:
-        raise HTTPException(status_code=401, detail="Not logged in")
-    songs = api.get_fav_songs(page=body.page, size=body.size)
-    return {"songs": [_song_to_dict(s) for s in songs]}
-
-
 @app.get("/api/downloads")
 def api_downloads():
     """List downloaded music files."""
@@ -345,66 +301,6 @@ def api_downloads():
             "mtime": f.stat().st_mtime,
         })
     return {"files": files, "dir": str(dl_dir)}
-
-
-@app.get("/api/cache")
-def api_cache(url: str):
-    """Download external URL to local cache and return local path for playback."""
-    from urllib.parse import urlparse
-    allowed_hosts = {"y.qq.com", "isure.stream.qqmusic.qq.com", "dl.stream.qqmusic.qq.com",
-                     "music.163.com", "m10.music.126.net", "m7.music.126.net", "m8.music.126.net",
-                     "kugou.com", "fs.open.kugou.com", "fs.w.kugou.com"}
-    parsed = urlparse(url)
-    if not (parsed.hostname and any(parsed.hostname == h or parsed.hostname.endswith("." + h) for h in allowed_hosts)):
-        raise HTTPException(status_code=403, detail=f"Blocked host: {parsed.hostname or 'unknown'}")
-    if parsed.scheme not in ("http", "https"):
-        raise HTTPException(status_code=403, detail="Blocked scheme")
-
-    import requests as _req, hashlib, tempfile
-
-    cache_dir = Path(tempfile.gettempdir()) / "musicdl_cache"
-    cache_dir.mkdir(exist_ok=True)
-
-    cache_key = hashlib.md5(url.encode()).hexdigest()[:12]
-    cache_file = cache_dir / f"{cache_key}.mp3"
-    if cache_file.exists() and cache_file.stat().st_size > 1024:
-        return {"path": str(cache_file), "cached": True}
-
-    try:
-        api = get_api()
-        resp = _req.get(url, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Referer": "https://y.qq.com",
-            "Cookie": api.session.headers.get("Cookie", ""),
-        }, timeout=30)
-        with open(cache_file, "wb") as f:
-            for chunk in resp.iter_content(65536):
-                f.write(chunk)
-        return {"path": str(cache_file), "cached": False, "size": cache_file.stat().st_size}
-    except Exception:
-        raise HTTPException(status_code=404, detail="Cannot cache URL")
-
-
-@app.get("/api/stream")
-def api_stream(path: str = ""):
-    """Stream local audio file."""
-
-    # Local file — validate path is within allowed directories
-    if path:
-        from tempfile import gettempdir
-        config = load_config(CONFIG_PATH)
-        file_path = Path(path).resolve()
-        allowed_dirs = [
-            Path(config.get("download_dir", str(Path.home() / "Music"))).resolve(),
-            Path(gettempdir()).resolve() / "musicdl_cache",
-        ]
-        if not any((str(d) + os.sep) in (str(file_path) + os.sep) for d in allowed_dirs):
-            raise HTTPException(status_code=403, detail="Access denied")
-        if not file_path.exists() or not file_path.is_file():
-            raise HTTPException(status_code=404, detail="File not found")
-        return FileResponse(file_path, media_type="audio/mpeg")
-
-    raise HTTPException(status_code=400, detail="Missing path or url param")
 
 
 @app.post("/api/play")

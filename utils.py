@@ -2,12 +2,9 @@
 from typing import List, Optional
 import os
 import threading
-import time
-import functools
 import json
 from pathlib import Path
 from logger import get_logger
-from typing import Callable
 
 logger = get_logger("utils")
 
@@ -116,25 +113,6 @@ def cookie_to_auth(cookie_str: str) -> Optional[dict]:
         "g_tk": get_g_tk(qqmusic_key),
         "cookie_str": cookie_str,
     }
-
-
-def retry(max_attempts: int = 3, backoff: float = 1.0):
-    """Decorator: retry a function with exponential backoff on exception."""
-    def decorator(func: Callable):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            last_exc = None
-            for attempt in range(1, max_attempts + 1):
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    last_exc = e
-                    if attempt < max_attempts:
-                        wait = backoff * (2 ** (attempt - 1))
-                        time.sleep(wait)
-            raise last_exc
-        return wrapper
-    return decorator
 
 
 _config_lock = threading.Lock()

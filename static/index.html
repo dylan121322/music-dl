@@ -323,26 +323,6 @@ async function doSearch() {
   }
 }
 
-async function getFavorites() {
-  const area = document.getElementById('resultsArea');
-  area.innerHTML = '<div class="empty-state"><span class="spinner"></span> 获取收藏列表...</div>';
-
-  try {
-    const r = await fetch('/api/favorites', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({page: 0, size: 200})
-    });
-    if (!r.ok) { const e = await r.json(); throw new Error(e.detail); }
-    const data = await r.json();
-    songs = data.songs || [];
-    selected.clear();
-    renderSongs();
-    toast(`获取到 ${songs.length} 首收藏歌曲`, 'ok');
-  } catch(e) {
-    area.innerHTML = '<div class="empty-state">获取失败: ' + esc(e.message) + '</div>';
-    toast('获取收藏失败: ' + e.message, 'err');
-  }
-}
 
 async function getPlaylist() {
   const url = document.getElementById('playlistUrl').value.trim();
