@@ -24,6 +24,13 @@ def setup_config(tmp_path, monkeypatch, reset_app_state):
     config_file = tmp_path / "config.json"
     monkeypatch.setattr("server.CONFIG_PATH", config_file)
     monkeypatch.setattr("server.STATIC_DIR", Path(__file__).parent.parent / "static")
+    # Also patch server_state and route module bindings — `from X import Y` creates
+    # local name bindings that don't see monkeypatch on the source module
+    monkeypatch.setattr("server_state.CONFIG_PATH", config_file)
+    monkeypatch.setattr("server_state.STATIC_DIR", Path(__file__).parent.parent / "static")
+    monkeypatch.setattr("server_routes_config.CONFIG_PATH", config_file)
+    monkeypatch.setattr("server_routes_download.CONFIG_PATH", config_file)
+    monkeypatch.setattr("server_routes_auth.CONFIG_PATH", config_file)
     yield
     if config_file.exists():
         config_file.unlink(missing_ok=True)

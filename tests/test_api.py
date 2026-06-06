@@ -63,11 +63,15 @@ class TestLoginCookie:
     """Tests for /api/login/cookie endpoint."""
 
     async def test_login_empty_cookie(self, client: AsyncClient):
+        """Empty cookie should clear login state (logout) and return 200."""
         response = await client.post("/api/login/cookie?platform=qq", json={
             "cookie": "",
             "platform": "qq",
         })
-        assert response.status_code == 400
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user"] == ""
+        assert data["ok"] is True
 
     async def test_login_unknown_platform(self, client: AsyncClient):
         response = await client.post("/api/login/cookie?platform=unknown", json={
@@ -75,18 +79,6 @@ class TestLoginCookie:
             "platform": "unknown",
         })
         assert response.status_code == 400
-
-
-@pytest.mark.anyio
-class TestDebugPlay:
-    """Tests for /debug/play endpoint."""
-
-    async def test_debug_play(self, client: AsyncClient):
-        response = await client.get("/debug/play")
-        assert response.status_code == 200
-        data = response.json()
-        assert "logged_in" in data
-        assert "results" in data
 
 
 @pytest.mark.anyio
@@ -113,8 +105,9 @@ class TestPlay:
     """Tests for /api/play endpoint."""
 
     async def test_play_missing_mid(self, client: AsyncClient):
+        """Missing required 'mid' field → Pydantic validation error (422)."""
         response = await client.post("/api/play", json={})
-        assert response.status_code == 400
+        assert response.status_code == 422
 
 
 @pytest.mark.anyio

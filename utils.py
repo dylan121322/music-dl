@@ -51,7 +51,7 @@ def get_platform_status(config: dict) -> List[dict]:
             "name": info["name"],
             "color": info["color"],
             "logged_in": bool(cookie),
-            "user": auth.get("user", "") if auth else "",
+            "user": auth.get("user") or auth.get("uin", "") if auth else "",
         })
     return status
 

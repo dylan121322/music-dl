@@ -44,7 +44,7 @@ def main():
     except Exception:
         lan_url = local_url
 
-    logger.info(f"Music DL v1.4.2 — {platform.system()} {platform.release()}")
+    logger.info(f"Music DL v1.4.5 — {platform.system()} {platform.release()}")
     logger.info(f"本机: {local_url}")
     logger.info(f"局域网: {lan_url}")
 
