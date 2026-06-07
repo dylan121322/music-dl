@@ -26,6 +26,12 @@ jobs:
             --add-data "static:static" \
             --add-data "sources:sources" \
             --add-data "server.py:." \
+            --add-data "server_models.py:." \
+            --add-data "server_state.py:." \
+            --add-data "server_routes_config.py:." \
+            --add-data "server_routes_search.py:." \
+            --add-data "server_routes_download.py:." \
+            --add-data "server_routes_auth.py:." \
             --add-data "api.py:." \
             --add-data "downloader.py:." \
             --add-data "utils.py:." \
@@ -75,7 +81,7 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
-          pyinstaller --onedir --name "MusicDL" --add-data "static;static" --add-data "sources;sources" --add-data "server.py;." --add-data "api.py;." --add-data "downloader.py;." --add-data "utils.py;." --add-data "models.py;." --add-data "cdp_cookies.py;." --add-data "logger.py;." --add-data "exporter.py;." --add-data "link_extractor.py;." --hidden-import "websocket" --hidden-import "uvicorn.logging" --hidden-import "uvicorn.loops" --hidden-import "uvicorn.loops.auto" --hidden-import "uvicorn.protocols" --hidden-import "uvicorn.protocols.http" --hidden-import "uvicorn.protocols.http.auto" --hidden-import "uvicorn.protocols.websockets" --hidden-import "uvicorn.protocols.websockets.auto" --hidden-import "uvicorn.lifespan" --hidden-import "uvicorn.lifespan.on" launcher.py
+          pyinstaller --onedir --name "MusicDL" --add-data "static;static" --add-data "sources;sources" --add-data "server.py;." --add-data "server_models.py;." --add-data "server_state.py;." --add-data "server_routes_config.py;." --add-data "server_routes_search.py;." --add-data "server_routes_download.py;." --add-data "server_routes_auth.py;." --add-data "api.py;." --add-data "downloader.py;." --add-data "utils.py;." --add-data "models.py;." --add-data "cdp_cookies.py;." --add-data "logger.py;." --add-data "exporter.py;." --add-data "link_extractor.py;." --hidden-import "websocket" --hidden-import "uvicorn.logging" --hidden-import "uvicorn.loops" --hidden-import "uvicorn.loops.auto" --hidden-import "uvicorn.protocols" --hidden-import "uvicorn.protocols.http" --hidden-import "uvicorn.protocols.http.auto" --hidden-import "uvicorn.protocols.websockets" --hidden-import "uvicorn.protocols.websockets.auto" --hidden-import "uvicorn.lifespan" --hidden-import "uvicorn.lifespan.on" launcher.py
 
       - name: Package as zip
         run: |
@@ -101,7 +107,7 @@ jobs:
       - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.0-dev libgtk-3-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
 
       - name: Install Python dependencies
         run: |
