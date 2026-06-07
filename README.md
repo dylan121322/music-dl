@@ -7,7 +7,7 @@
 
 | 平台 | 下载 |
 |------|------|
-| Android APK | [app-debug.apk](https://github.com/dylan121322/music-dl/releases/tag/v1.4.2) |
+| Android APK | [app-debug.apk](https://github.com/dylan121322/music-dl-android/releases/tag/v1.5.1) |
 | macOS (Apple Silicon) | [MusicDL-macOS-arm64.zip](https://github.com/dylan121322/music-dl/releases/latest) |
 | Windows (x64) | [MusicDL-Windows-x64.zip](https://github.com/dylan121322/music-dl/releases/latest) |
 
@@ -162,44 +162,52 @@ python main.py config --dir ~/Music
 
 ```
 music-dl/
-├── server.py           # FastAPI 后端 + REST API（Web 入口）
-├── launcher.py         # 桌面窗口启动器（PyInstaller 构建用）
-├── logger.py           # 统一日志引擎（RotatingFileHandler, 5MB×3）
-├── exporter.py         # 日志导出（JSON/TXT/日期筛选）
-├── link_extractor.py   # 链接音频提取（规则 + AI 两级）
-├── static/             # Web 前端（原生 HTML/CSS/JS，零依赖）
-│   ├── index.html      # 单页应用（多平台搜索 + 下载 + 播放）
-│   └── style.css       # 暗色主题
-├── android/            # Android App（Chaquopy Python-in-Android）
+├── server.py               # FastAPI App 组装 (69行)
+├── server_models.py        # Pydantic 请求/响应模型
+├── server_state.py         # 状态管理: get_api(Lock), lifespan(TTL清理)
+├── server_routes_config.py # 配置端点 (5个)
+├── server_routes_search.py # 多平台并行搜索+去重
+├── server_routes_download.py # 下载/流/播放/进度SSE (7端点)
+├── server_routes_auth.py   # CDP登录/源管理/日志 (10端点)
+├── launcher.py             # 桌面窗口启动器（PyInstaller 构建用）
+├── logger.py               # 统一日志引擎（RotatingFileHandler, 5MB×3）
+├── exporter.py             # 日志导出（JSON/TXT/日期筛选）
+├── link_extractor.py       # 链接音频提取（规则 + AI 两级）
+├── static/                 # Web 前端（原生 HTML/CSS/JS，零依赖）
+│   ├── index.html          # 单页应用（多平台搜索 + 下载 + 播放）
+│   └── style.css           # 暗色主题
+├── android/                # Android App（Chaquopy Python-in-Android）
 │   └── app/src/main/java/com/musicdl/MainActivity.java  # 原生 Java UI
-├── tests/              # 测试套件（pytest + httpx）
-│   ├── conftest.py     # 测试 fixtures
-│   ├── test_api.py     # API 端点测试
-│   ├── test_utils.py   # 工具函数测试
-│   ├── test_logger.py  # 日志引擎测试
-│   └── test_exporter.py# 导出模块测试
-├── pyproject.toml      # Pytest 配置
-├── .github/workflows/  # CI 自动构建（macOS + Windows）
-├── main.py             # CLI 入口
-├── api.py              # QQ 音乐 API + CDP HTML 歌单提取
-├── downloader.py       # 多线程下载引擎 + 3层回退
-├── models.py           # Song 数据模型
-├── utils.py            # 工具函数、Cookie 解析、g_tk 计算、AI 配置
-├── cdp_cookies.py      # Chrome CDP Cookie 提取（含 HttpOnly）
-├── login.py            # 二维码登录（QQ）
-├── browser_login.py    # 浏览器 Cookie 读取 + Chrome Keychain 解密
+├── tests/                  # 测试套件（pytest + httpx）
+│   ├── conftest.py         # 测试 fixtures
+│   ├── test_api.py         # API 端点测试
+│   ├── test_utils.py       # 工具函数测试
+│   ├── test_logger.py      # 日志引擎测试
+│   └── test_exporter.py    # 导出模块测试
+├── .opencodereview/        # 代码审查规则
+│   └── rule.json           # 按扩展名匹配审查规则
+├── pyproject.toml          # Pytest 配置
+├── .github/workflows/      # CI 自动构建（macOS + Windows）
+├── main.py                 # CLI 入口
+├── api.py                  # QQ 音乐 API + CDP HTML 歌单提取
+├── downloader.py           # 多线程下载引擎 + 3层回退
+├── models.py               # Song 数据模型
+├── utils.py                # 工具函数、Cookie 解析、g_tk 计算、AI 配置
+├── cdp_cookies.py          # Chrome CDP Cookie 提取（含 HttpOnly）
+├── login.py                # 二维码登录（QQ）
+├── browser_login.py        # 浏览器 Cookie 读取 + Chrome Keychain 解密
 ├── requirements.txt
-└── sources/            # 多音源系统
-    ├── __init__.py     # 音源注册中心 + 回退逻辑
-    ├── base.py         # MusicSource 抽象基类
-    ├── netease.py      # 网易云音乐
-    ├── kugou.py        # 酷狗音乐
-    ├── github.py       # GitHub 音源
-    ├── lx_adapter.py   # LX Music JS 音源适配器
-    ├── template.py     # JSON 模板音源（零代码添加新源）
-    ├── discovery.py    # 网页爬取 + 自动发现
-    ├── ai_discovery.py # AI 发现引擎（搜索→访问→分析→注册）
-    └── configs/        # 自动保存发现的音源模板 JSON
+└── sources/                # 多音源系统
+    ├── __init__.py          # 音源注册中心 + 回退逻辑
+    ├── base.py              # MusicSource 抽象基类
+    ├── netease.py           # 网易云音乐
+    ├── kugou.py             # 酷狗音乐
+    ├── github.py            # GitHub 音源
+    ├── lx_adapter.py        # LX Music JS 音源适配器
+    ├── template.py          # JSON 模板音源（零代码添加新源）
+    ├── discovery.py         # 网页爬取 + 自动发现
+    ├── ai_discovery.py      # AI 发现引擎（搜索→访问→分析→注册）
+    └── configs/             # 自动保存发现的音源模板 JSON
 ```
 
 ## 下载回退链路
@@ -282,8 +290,20 @@ curl -X POST http://127.0.0.1:8765/api/logs/export \
 
 ```bash
 pip install pytest pytest-asyncio httpx
-pytest tests/ -v    # 65 tests
+pytest tests/ -v    # 65 tests (API / 工具函数 / 日志 / 导出 / 链接提取)
 ```
+
+## 代码审查
+
+集成阿里巴巴 [Open Code Review](https://github.com/alibaba/open-code-review) (OCR) CLI，确定性工程 + Agent 混合架构：
+
+```
+git diff → 文件筛选 → 模块打包 → 规则匹配 → OCR 系统性扫描 → 四Agent并行审查 → 行号校验/去重/分级
+```
+
+四 Agent 并行审查：Bug Scanner（安全/崩溃） + Code Reviewer（逻辑/测试覆盖） + UI/UX Checker + Devil's Advocate（设计决策）
+
+审查规则按文件类型自动匹配 (`.opencodereview/rule.json`)：Python (None引用/异常/资源泄漏/线程安全/SQL注入/路径遍历) / HTML (XSS/escJs) / CSS (布局一致性) / JS (XSS/eval)
 
 ## 依赖
 
@@ -294,32 +314,40 @@ pytest tests/ -v    # 65 tests
 
 ## API 参考
 
+23 个 REST 端点，按模块组织：
+
+| 模块 | 端点 | 方法 | 说明 |
+|------|------|------|------|
+| config | `/api/status` | GET | 登录状态、音质、下载目录 |
+| config | `/api/config` | GET/POST | 配置读写 |
+| config | `/api/config/ai` | GET/POST | AI 配置读写 |
+| search | `/api/search` | POST | 聚合搜索 `{"keyword":"晴天","limit":20}` |
+| download | `/api/play` | POST | 获取播放链接 `{"mid":"xxx","quality":"320kbps"}` |
+| download | `/api/stream` | GET | 流式播放本地文件 `?path=...` |
+| download | `/api/download` | POST | 批量下载 `{"songs":[...],"quality":"320kbps"}` |
+| download | `/api/download/progress/{id}` | GET | SSE 下载进度 |
+| download | `/api/downloads` | GET | 已下载文件列表 |
+| download | `/api/playlist` | POST | 歌单提取 `{"url":"..."}` |
+| download | `/api/link` | POST | 链接下载 `{"url":"...","quality":"320kbps"}` |
+| auth | `/api/login/cookie` | POST | Cookie 登录 `{"cookie":"...","platform":"qq"}` |
+| auth | `/api/login/chrome` | POST | 打开 Chrome 登录页 `?platform=qq` |
+| auth | `/api/login/cdp` | POST | CDP 提取 Cookie `?platform=qq` |
+| auth | `/api/login/suspend` | POST | 暂停登录 `?platform=qq` |
+| auth | `/api/login/restore` | POST | 恢复登录 `?platform=qq` |
+| auth | `/api/sources/discover` | POST | AI 发现音源 |
+| auth | `/api/sources/status` | GET | 音源可用性检测 |
+| auth | `/api/sources/lx/import` | POST | 导入 LX 音源 |
+| auth | `/api/logs/status` | GET | 日志统计（行数/错误/警告/大小） |
+| auth | `/api/logs/export` | POST | 导出日志 `{"format":"json"\|"txt","date":null}` |
+| auth | `/debug/play` | GET | 播放诊断 |
+
+### Android 专有端点 (music-dl-android)
+
 | 端点 | 方法 | 说明 |
 |------|------|------|
-| `/api/status` | GET | 登录状态、音质、下载目录 |
-| `/api/search` | POST | 聚合搜索 `{"keyword":"晴天","limit":20}` |
-| `/api/play` | POST | 获取播放链接 `{"mid":"xxx","quality":"320kbps"}` |
-| `/api/stream` | GET | 流式播放本地文件 `?path=...` |
-| `/api/download` | POST | 批量下载 `{"songs":[...],"quality":"320kbps"}` |
-| `/api/download/progress/{id}` | GET | SSE 下载进度 |
-| `/api/downloads` | GET | 已下载文件列表（Web 侧边栏 📂） |
-| `/api/playlist` | POST | 歌单提取 `{"url":"..."}` |
-| `/api/link` | POST | 链接下载 `{"url":"...","quality":"320kbps"}` |
-| `/api/logs/status` | GET | 日志统计（行数/错误/警告/大小） |
-| `/api/logs/export` | POST | 导出日志 `{"format":"json"\|"txt","date":null}` |
-| `/api/login/cookie` | POST | Cookie 登录 `{"cookie":"...","platform":"qq"}` |
-| `/api/login/chrome` | POST | 打开 Chrome 登录页 `?platform=qq` |
-| `/api/login/cdp` | POST | CDP 提取 Cookie `?platform=qq` |
-| `/api/login/suspend` | POST | 暂停登录 `?platform=qq` |
-| `/api/login/restore` | POST | 恢复登录 `?platform=qq` |
-| `/api/logs/status` | GET | 日志统计（行数、错误数、文件大小） |
-| `/api/logs/export` | POST | 导出日志 `{"format":"json"\|"txt","date":"2026-06-01"}` |
-| `/api/sources/discover` | POST | AI 发现音源 |
-| `/api/sources/status` | GET | 音源可用性检测 |
-| `/api/sources/lx/import` | POST | 导入 LX 音源 |
-| `/api/config` | GET/POST | 配置读写 |
-| `/api/config/ai` | GET/POST | AI 配置读写 |
-| `/debug/play` | GET | 播放诊断 |
+| `/api/stream?url=` | GET | CDN URL 代理（白名单，无 Cookie 转发） |
+| `/api/cache` | GET | CDN 音频缓存（域名校验 + Content-Type 验证） |
+| `/api/favorites` | POST | QQ 音乐收藏列表 |
 
 ## 参考与致谢
 
