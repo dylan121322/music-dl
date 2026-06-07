@@ -184,8 +184,6 @@ music-dl/
 │   ├── test_utils.py       # 工具函数测试
 │   ├── test_logger.py      # 日志引擎测试
 │   └── test_exporter.py    # 导出模块测试
-├── .opencodereview/        # 代码审查规则
-│   └── rule.json           # 按扩展名匹配审查规则
 ├── pyproject.toml          # Pytest 配置
 ├── .github/workflows/      # CI 自动构建（macOS + Windows）
 ├── main.py                 # CLI 入口
@@ -292,18 +290,6 @@ curl -X POST http://127.0.0.1:8765/api/logs/export \
 pip install pytest pytest-asyncio httpx
 pytest tests/ -v    # 65 tests (API / 工具函数 / 日志 / 导出 / 链接提取)
 ```
-
-## 代码审查
-
-集成阿里巴巴 [Open Code Review](https://github.com/alibaba/open-code-review) (OCR) CLI，确定性工程 + Agent 混合架构：
-
-```
-git diff → 文件筛选 → 模块打包 → 规则匹配 → OCR 系统性扫描 → 四Agent并行审查 → 行号校验/去重/分级
-```
-
-四 Agent 并行审查：Bug Scanner（安全/崩溃） + Code Reviewer（逻辑/测试覆盖） + UI/UX Checker + Devil's Advocate（设计决策）
-
-审查规则按文件类型自动匹配 (`.opencodereview/rule.json`)：Python (None引用/异常/资源泄漏/线程安全/SQL注入/路径遍历) / HTML (XSS/escJs) / CSS (布局一致性) / JS (XSS/eval)
 
 ## 依赖
 
