@@ -183,24 +183,27 @@ class MusicAPI:
         - Multiple file format prefixes (RS01/F000/M800/M500/C400)
         - Dual ID probing (media_mid + song_mid)
         - authst (musicKey) for authenticated quality tiers
+        - Falls back to single-file probe if batch returns empty
         """
         time.sleep(0.8)
 
         # Resolve quality starting point
         quality_rank = {"128kbps": "standard", "320kbps": "exhigh",
                         "flac": "lossless", "hires": "hires"}
-        start_level = quality_rank.get(target_quality, "exhigh")
+        start_level = quality_rank.get(target_quality)
+        if start_level is None:
+            logger.warning("Unknown quality '%s', falling back to exhigh", target_quality)
+            start_level = "exhigh"
         try:
             start_idx = next(i for i, t in enumerate(self._FNAME_TEMPLATES)
                              if t[2] == start_level)
         except StopIteration:
+            logger.warning("Quality level '%s' not in templates, probing all", start_level)
             start_idx = 0
         templates = self._FNAME_TEMPLATES[start_idx:]
 
         # Build candidate media IDs: media_mid first, song_mid as fallback
-        media_ids = []
-        if media_mid:
-            media_ids.append(media_mid)
+        media_ids = [media_mid] if media_mid and media_mid != song_mid else []
         media_ids.append(song_mid)
 
         # Build filename list
@@ -249,16 +252,64 @@ class MusicAPI:
             result = resp.json()
             inner = result.get("req_0", {}).get("data", {})
             midurlinfo = inner.get("midurlinfo", [])
-            sip_list = inner.get("sip", ["http://aqqmusic.tc.qq.com/"])
+            sip_list = inner.get("sip", [])
+            sip = sip_list[0] if sip_list else "http://aqqmusic.tc.qq.com/"
 
             if midurlinfo:
                 # Return the first entry with a valid purl
                 for item in midurlinfo:
                     purl = item.get("purl", "")
                     if purl:
-                        return {"purl": purl, "server": sip_list[0]}
-        except (requests.RequestException, ValueError, KeyError) as e:
+                        return {"purl": purl, "server": sip}
+
+            # Batch returned no playable URL — log and fall back to single probe
+            logger.warning(
+                "Batch GetVkey empty for %s (tried %d candidates, quality=%s)",
+                song_mid, len(filenames), target_quality,
+            )
+        except (requests.RequestException, ValueError, KeyError, IndexError) as e:
             logger.debug("Vkey batch request failed for %s: %s", song_mid, e)
+
+        # Fallback: single-file probe with lowest quality (songtype=0, standard M500)
+        return self._get_vkey_fallback(song_mid)
+
+    def _get_vkey_fallback(self, song_mid: str) -> Optional[dict]:
+        """Single-file fallback probe when batch GetVkey returns nothing.
+
+        Uses the simplest file pattern (M500 MP3) with no auth requirements.
+        Kept as emergency fallback in case the batch approach fails for any reason.
+        """
+        try:
+            req_data = {
+                "req_0": {
+                    "module": "vkey.GetVkeyServer",
+                    "method": "CgiGetVkey",
+                    "param": {
+                        "guid": self.guid,
+                        "songmid": [song_mid],
+                        "songtype": [0],
+                        "uin": self.uin,
+                        "loginflag": 1,
+                        "platform": "20",
+                        "filename": [f"M500{song_mid}.mp3"],
+                    },
+                }
+            }
+            url = "https://u.y.qq.com/cgi-bin/musicu.fcg"
+            resp = self.session.post(url, json=req_data, timeout=10)
+            resp.raise_for_status()
+            inner = resp.json().get("req_0", {}).get("data", {})
+            midurlinfo = inner.get("midurlinfo", [])
+            sip_list = inner.get("sip", [])
+            sip = sip_list[0] if sip_list else "http://aqqmusic.tc.qq.com/"
+            if midurlinfo:
+                for item in midurlinfo:
+                    purl = item.get("purl", "")
+                    if purl:
+                        logger.info("Fallback GetVkey succeeded for %s", song_mid)
+                        return {"purl": purl, "server": sip}
+        except (requests.RequestException, ValueError, KeyError, IndexError) as e:
+            logger.debug("Fallback GetVkey also failed for %s: %s", song_mid, e)
         return None
 
     def get_fav_songs(self, page: int = 0, size: int = 50) -> List[Song]:
