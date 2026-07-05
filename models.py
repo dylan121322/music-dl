@@ -14,6 +14,7 @@ class Song:
     url: str = ""       # resolved download URL
     is_gray: bool = True  # True if song is unavailable/download restricted
     source: str = "qq"   # "qq" | "netease" | "kugou"
+    media_mid: str = ""  # alt media ID for GetVkey probing (Mineradio strategy)
 
     @property
     def filename(self) -> str:

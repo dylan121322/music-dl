@@ -83,6 +83,22 @@ def parse_cookie_string(cookie_str: str) -> dict:
     return cookies
 
 
+def extract_music_key(cookie_str: str) -> str:
+    """Extract QQ Music auth key (for `authst` in GetVkey requests).
+
+    Priority: qm_keyst > qqmusic_key > music_key > p_skey > skey
+    This is the key QQ Music uses to authorize playback at higher quality tiers.
+    """
+    cookies = parse_cookie_string(cookie_str)
+    return (
+        cookies.get("qm_keyst", "") or
+        cookies.get("qqmusic_key", "") or
+        cookies.get("music_key", "") or
+        cookies.get("p_skey", "") or
+        cookies.get("skey", "")
+    )
+
+
 def cookie_to_auth(cookie_str: str) -> Optional[dict]:
     """Extract uin and compute g_tk from a raw cookie string. Returns None if invalid.
 

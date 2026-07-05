@@ -52,7 +52,7 @@ class Downloader:
         # Logged in: try QQ Music API first
         if logged_in:
             self.progress("正在查询主音源...")
-            url = self.api.get_song_url(song.mid, self.quality)
+            url = self.api.get_song_url(song.mid, self.quality, media_mid=song.media_mid)
             if url:
                 song.url = url
                 filepath = self.save_dir / song.filename
@@ -150,7 +150,7 @@ class Downloader:
             with ThreadPoolExecutor(max_workers=self.workers) as executor:
                 for song in downloadable:
                     # Resolve URL first, then submit download
-                    url = self.api.get_song_url(song.mid, self.quality)
+                    url = self.api.get_song_url(song.mid, self.quality, media_mid=song.media_mid)
                     if not url:
                         logger.warning(f"No URL: {song.title}")
                         results["skipped"] += 1

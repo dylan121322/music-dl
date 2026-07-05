@@ -34,12 +34,13 @@ class MusicAPI:
         self.guid = str(uuid.uuid4()).replace("-", "")[:32].upper()
         self.uin = "0"
         self.g_tk = ""
+        self.music_key = ""  # authst for GetVkey (unlocks higher quality)
         if cookie_str:
             self.set_cookie(cookie_str)
 
     def set_cookie(self, cookie_str: str) -> bool:
         """Set the cookie string for VIP auth. Returns True if valid."""
-        from utils import cookie_to_auth
+        from utils import cookie_to_auth, extract_music_key
         auth = cookie_to_auth(cookie_str)
         if not auth:
             return False
@@ -53,6 +54,7 @@ class MusicAPI:
         self.session.headers["Cookie"] = auth["cookie_str"]
         self.uin = auth["uin"]
         self.g_tk = auth["g_tk"]
+        self.music_key = extract_music_key(cookie_str)
         return True
 
     def _get(self, path: str, params: dict, timeout: int = 15) -> dict:
@@ -98,6 +100,7 @@ class MusicAPI:
                 album=item.get("albumname", ""),
                 duration=int(item.get("interval", 0)),
                 is_gray=False if self.g_tk else _is_gray(item),
+                media_mid=_extract_media_mid(item),
             )
             songs.append(song)
         return songs
@@ -141,68 +144,101 @@ class MusicAPI:
                     album=item.get("album", {}).get("name", ""),
                     duration=int(item.get("interval", 0)),
                     is_gray=False if self.g_tk else _is_gray(item),
+                    media_mid=_extract_media_mid(item),
                 ))
             return songs
         except Exception as e:
             logger.warning("QQ Music search v2 failed: %s", e)
             return []
 
-    def get_song_url(self, song_mid: str, quality: str = "320kbps") -> Optional[str]:
-        """Get the playable download URL for a song. Returns None if unavailable.
+    # Quality filename templates (Mineradio strategy — batch probe all in one request).
+    _FNAME_TEMPLATES = [
+        ("RS01", ".flac", "hires"),
+        ("F000", ".flac", "lossless"),
+        ("M800", ".mp3", "exhigh"),
+        ("M500", ".mp3", "standard"),
+        ("C400", ".m4a", "aac"),
+    ]
 
-        Quality levels: 128kbps (songtype=0), 320kbps (songtype=1), flac (songtype=2).
-        Higher qualities require login. When not logged in, falls back to 128kbps.
+    def get_song_url(self, song_mid: str, quality: str = "320kbps",
+                     media_mid: str = "") -> Optional[str]:
+        """Get the playable/download URL for a song. Returns None if unavailable.
+
+        Uses Mineradio's batch filename probing: one request covers all
+        quality tiers and both song_mid + media_mid.
         """
-        st_map = {"128kbps": 0, "320kbps": 1, "flac": 2}
-        songtype = st_map.get(quality, 1)
+        data = self._get_vkey_batch(song_mid, quality, media_mid)
+        if not data:
+            return None
+        srv = data.get("server", "http://aqqmusic.tc.qq.com/")
+        if not srv.endswith("/"):
+            srv += "/"
+        return srv + data["purl"]
 
-        def _build_url(p, data):
-            srv = data.get("server", "http://aqqmusic.tc.qq.com/")
-            if not srv:
-                srv = "http://aqqmusic.tc.qq.com/"
-            if not srv.endswith("/"):
-                srv += "/"
-            return srv + p
+    def _get_vkey_batch(self, song_mid: str, target_quality: str = "hires",
+                        media_mid: str = "") -> Optional[dict]:
+        """One-request batch GetVkey: probes all filename patterns × all media IDs.
 
-        # Try requested quality first
-        data = self._get_vkey(song_mid, songtype)
-        if data and data.get("purl"):
-            return _build_url(data["purl"], data)
+        Ported from Mineradio's handleQQSongUrl.  Key improvements over songtype:
+        - Multiple file format prefixes (RS01/F000/M800/M500/C400)
+        - Dual ID probing (media_mid + song_mid)
+        - authst (musicKey) for authenticated quality tiers
+        """
+        time.sleep(0.8)
 
-        # If logged in but higher quality failed, try 128kbps
-        if songtype > 0:
-            data = self._get_vkey(song_mid, 0)
-            if data and data.get("purl"):
-                return _build_url(data["purl"], data)
+        # Resolve quality starting point
+        quality_rank = {"128kbps": "standard", "320kbps": "exhigh",
+                        "flac": "lossless", "hires": "hires"}
+        start_level = quality_rank.get(target_quality, "exhigh")
+        try:
+            start_idx = next(i for i, t in enumerate(self._FNAME_TEMPLATES)
+                             if t[2] == start_level)
+        except StopIteration:
+            start_idx = 0
+        templates = self._FNAME_TEMPLATES[start_idx:]
 
-        return None
+        # Build candidate media IDs: media_mid first, song_mid as fallback
+        media_ids = []
+        if media_mid:
+            media_ids.append(media_mid)
+        media_ids.append(song_mid)
 
-    def _get_vkey(self, song_mid: str, songtype: int = 0) -> Optional[dict]:
-        """Request the vkey needed to construct the play URL. songtype: 0=lq 1=hq 2=flac."""
-        time.sleep(0.8)  # rate limit
+        # Build filename list
+        filenames = []
+        for mid in media_ids:
+            for prefix, ext, level in templates:
+                filenames.append(f"{prefix}{mid}{ext}")
+
+        # Build request
+        param = {
+            "guid": self.guid,
+            "songmid": [song_mid] * len(filenames),
+            "songtype": [0] * len(filenames),
+            "uin": self.uin,
+            "loginflag": 1,
+            "platform": "20",
+            "filename": filenames,
+        }
+
         req_data = {
             "req_0": {
                 "module": "vkey.GetVkeyServer",
                 "method": "CgiGetVkey",
-                "param": {
-                    "guid": self.guid,
-                    "songmid": [song_mid],
-                    "songtype": [songtype],
-                    "uin": self.uin,
-                    "loginflag": 1,
-                    "platform": "20",
-                },
-            }
+                "param": param,
+            },
         }
-        # If authenticated, add the comm block with uin and g_tk
+
+        # Auth block — include musicKey as authst when available
         if self.g_tk:
-            req_data["comm"] = {
+            comm = {
                 "uin": self.uin,
                 "format": "json",
-                "ct": "20",
+                "ct": 19 if self.music_key else 24,
                 "cv": 0,
-                "g_tk": self.g_tk,
             }
+            if self.music_key:
+                comm["authst"] = self.music_key
+            req_data["comm"] = comm
 
         try:
             url = "https://u.y.qq.com/cgi-bin/musicu.fcg"
@@ -214,17 +250,15 @@ class MusicAPI:
             inner = result.get("req_0", {}).get("data", {})
             midurlinfo = inner.get("midurlinfo", [])
             sip_list = inner.get("sip", ["http://aqqmusic.tc.qq.com/"])
+
             if midurlinfo:
-                item = midurlinfo[0]
-                purl = item.get("purl", "")
-                if not purl:
-                    return None  # song is paywalled
-                return {
-                    "purl": purl,
-                    "server": sip_list[0],
-                }
+                # Return the first entry with a valid purl
+                for item in midurlinfo:
+                    purl = item.get("purl", "")
+                    if purl:
+                        return {"purl": purl, "server": sip_list[0]}
         except (requests.RequestException, ValueError, KeyError) as e:
-            logger.debug("Vkey request failed for %s: %s", song_mid, e)
+            logger.debug("Vkey batch request failed for %s: %s", song_mid, e)
         return None
 
     def get_fav_songs(self, page: int = 0, size: int = 50) -> List[Song]:
@@ -260,6 +294,7 @@ class MusicAPI:
                     album=info.get("album", {}).get("name", ""),
                     duration=int(info.get("interval", 0)),
                     is_gray=False,  # musicu path only runs when authenticated
+                    media_mid=_extract_media_mid(info),
                 ))
             return songs
         except Exception:
@@ -303,6 +338,7 @@ class MusicAPI:
                             album=info.get("album", {}).get("name", ""),
                             duration=int(info.get("interval", 0)),
                             is_gray=False,  # CDP HTML extraction: user is logged in
+                            media_mid=_extract_media_mid(info),
                         ))
                     return songs
             except Exception:
@@ -326,6 +362,7 @@ class MusicAPI:
                     album=item.get("albumname", ""),
                     duration=int(item.get("interval", 0)),
                     is_gray=False if self.g_tk else _is_gray(item),
+                    media_mid=_extract_media_mid(item),
                 )
                 songs.append(song)
         return songs
@@ -407,6 +444,7 @@ class MusicAPI:
                     album=album_info.get("name", ""),
                     duration=int(item.get("interval", 0)),
                     is_gray=False,  # CDP = user is logged in
+                    media_mid=_extract_media_mid(item),
                 ))
             return songs
         except Exception as e:
@@ -456,6 +494,19 @@ class MusicAPI:
 def _extract_singer(singers: List[dict]) -> str:
     """Join singer names from the singer list."""
     return " / ".join(s.get("name", "") for s in singers)
+
+
+def _extract_media_mid(item: dict) -> str:
+    """Extract media_mid from a song item (alternative file ID for GetVkey).
+
+    Some songs register their audio files under file.media_mid instead of
+    the song's main mid.  Probing both IDs increases the chance of finding
+    a playable URL.
+    """
+    file_info = item.get("file", {})
+    if isinstance(file_info, dict):
+        return file_info.get("media_mid", "")
+    return ""
 
 
 def _is_gray(item: dict) -> bool:
